@@ -37,7 +37,7 @@ namespace CommonLibrary.Enemies
 
         public virtual void Draw(DrawingContext dc, Point origin) 
         {
-            FormattedText text = new FormattedText(Name+"\n"+HP, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface("Sagoe UI"), 12, Brushes.Black,3);
+            FormattedText text = new FormattedText(" "+Name+"\n "+HP, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface("Sagoe UI"), 12, Brushes.Black,3);
 
             dc.DrawText(text, (Point)Point.Subtract(origin,new Point(Name.Length*4,0)));
         }

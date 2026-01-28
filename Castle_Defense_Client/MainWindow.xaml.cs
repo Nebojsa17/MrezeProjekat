@@ -5,6 +5,8 @@ using CommonLibrary.Sprites;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,6 +16,7 @@ using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Media.Media3D;
 using System.Windows.Navigation;
@@ -76,5 +79,17 @@ namespace Castle_Defense_Client
                 mapa.Draw(dc);
             }
         }
+
+        private void ConnectBtn_Click(object sender, RoutedEventArgs e)
+        {
+            
+        }
+
+        private void DisconnectBtn_Click(object sender, RoutedEventArgs e)
+        {
+            
+        }
+
+
     }
 }
