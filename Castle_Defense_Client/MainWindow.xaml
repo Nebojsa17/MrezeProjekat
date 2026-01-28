@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Castle_Defense_Client.Elements"
         mc:Ignorable="d"
-        Title="MainWindow" Height="500" Width="800">
+        Title="MainWindow" Height="700" Width="1000">
     <Grid Background="Gray">
         <Grid.RowDefinitions>
             <RowDefinition/>
@@ -13,8 +13,8 @@
             <RowDefinition/>
         </Grid.RowDefinitions>
 
-        <DockPanel Grid.Row="1" Margin="10">
-            <local:DrawingPanel x:Name="Screen" Width="750" Height="300"></local:DrawingPanel>
+        <DockPanel Background="DarkGray" Grid.Row="1" Margin="10" Width="950" Height="450">
+            <local:DrawingPanel x:Name="Screen" Width="950" Height="450" ClipToBounds="True"></local:DrawingPanel>
         </DockPanel>
     </Grid>
 </Window>
