@@ -12,6 +12,8 @@
             <RowDefinition Height="5*"/>
             <RowDefinition/>
         </Grid.RowDefinitions>
+        
+
 
         <DockPanel Background="DarkGray" Grid.Row="1" Margin="10" Width="950" Height="450">
             <local:DrawingPanel x:Name="Screen" Width="950" Height="450" ClipToBounds="True"></local:DrawingPanel>
