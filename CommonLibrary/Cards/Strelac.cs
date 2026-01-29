@@ -14,9 +14,10 @@ namespace CommonLibrary.Cards
 
         }
 
-        public override void Play(List<Card> hand, Line traka, int zone, int enemy)
+        public override bool Play(List<Card> hand, Line traka, int zone, int enemy)
         {
-            
+
+            return true;
         }
 
         public override Card Copy()

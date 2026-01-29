@@ -57,7 +57,7 @@ namespace CommonLibrary.Cards
             }
         }
 
-        public abstract void Play(List<Card> hand, Line traka, int zone, int enemy);
+        public abstract bool Play(List<Card> hand, Line traka, int zone, int enemy);
 
         public abstract Card Copy();
     }
