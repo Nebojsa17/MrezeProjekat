@@ -11,7 +11,7 @@ using System.Xml.Linq;
 
 namespace CommonLibrary.Miscellaneous
 {
-    public enum LineColor { PLAVA, ZELENA, CRVENA }
+    public enum LineColor { PLAVA, ZELENA, CRVENA, LJUBICASTA }
     public class Line
     {
         public int Broj { get; set; }
