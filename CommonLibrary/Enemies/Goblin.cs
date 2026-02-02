@@ -8,6 +8,7 @@ using System.Windows.Media;
 
 namespace CommonLibrary.Enemies
 {
+    [Serializable]
     public class Goblin : Enemy
     {
         public Goblin() : base("Goblin", 1) { }
@@ -15,6 +16,11 @@ namespace CommonLibrary.Enemies
         public override void Draw(DrawingContext dc, Point origin)
         {
             base.Draw(dc, origin);
+        }
+
+        public override Enemy Copy()
+        {
+            return new Goblin();
         }
     }
 }

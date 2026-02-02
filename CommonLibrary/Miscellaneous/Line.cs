@@ -12,6 +12,8 @@ using System.Xml.Linq;
 namespace CommonLibrary.Miscellaneous
 {
     public enum LineColor { PLAVA, ZELENA, CRVENA, LJUBICASTA }
+    
+    [Serializable]
     public class Line
     {
         public int Broj { get; set; }
@@ -31,6 +33,32 @@ namespace CommonLibrary.Miscellaneous
             BrojZidina = 2;
             Broj = br;
             LColor = boja;
+        }
+
+        public List<Enemy> GetZone( int zoneIndx ) 
+        {
+            switch (zoneIndx)
+            {
+                case 0: return SumaZona;
+                case 1: return StrelacZona;
+                case 2: return VitezZona;
+                case 3: return MacevalacZona;
+                default: return null;
+            }
+        }
+
+        public bool DmgEnemy(int zoneIndx, int enemyIndx, int dmg) 
+        {
+            if (zoneIndx > 3 || zoneIndx < 0) return false;
+            if (GetZone(zoneIndx).Count < (enemyIndx - 1) || GetZone(zoneIndx).Count==0) return false;
+
+            if (GetZone(zoneIndx)[enemyIndx - 1].TakeDmg(dmg)) 
+            {
+                GetZone(zoneIndx).Remove(GetZone(zoneIndx)[enemyIndx - 1]);
+                return true;
+            }
+
+            return true;
         }
 
         public void Advance()

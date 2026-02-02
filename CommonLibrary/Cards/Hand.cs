@@ -8,6 +8,7 @@ using System.Windows.Media;
 
 namespace CommonLibrary.Cards
 {
+    [Serializable]
     public class Hand
     {
         public const int HandSize = 5;

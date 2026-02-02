@@ -10,10 +10,11 @@ using System.Windows.Media;
 
 namespace CommonLibrary.Cards
 {
+    [Serializable]
     public abstract class Card
     {
-        const double cardWidth = 80;
-        const double cardHeight = 100;
+        protected const double cardWidth = 80;
+        protected const double cardHeight = 100;
 
         public string Name { get; set; }
         public string Effect { get; set; }
@@ -40,7 +41,7 @@ namespace CommonLibrary.Cards
             text = new FormattedText(Effect, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface("Sagoe UI"), 8, Brushes.White, 2);
             dc.DrawText(text, new Point(origin.X - 35, origin.Y));
         }
-        private Color ConvertToColour()
+        protected Color ConvertToColour()
         {
             switch (CColor)
             {
@@ -57,7 +58,14 @@ namespace CommonLibrary.Cards
             }
         }
 
-        public abstract bool Play(List<Card> hand, Line traka, int zone, int enemy);
+        public override bool Equals(object obj)
+        {
+            if (obj.GetType() != this.GetType()) return false;
+
+            return ((Card)obj).Name == this.Name;
+        }
+
+        public abstract Card Play(List<Card> hand, Line traka, int zone, int enemy);
 
         public abstract Card Copy();
     }

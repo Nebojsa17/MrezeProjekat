@@ -30,6 +30,7 @@ namespace Castle_Defense_Client
         //For web
         public const int SERVER_PORT = 51000;
         private Socket _sockUDP, _sockTCP;
+        private bool discarded = false;
         private CancellationTokenSource _cts;
         private Task _rxTask;
 
@@ -47,8 +48,9 @@ namespace Castle_Defense_Client
             Screen.AddVisual(dvGame);
             CardSpace.AddVisual(dvCards);
 
-
+            //Ovaj sav posao ide serveru, treba da prosledi trake sa neprijateljima i karte
             Deck.InitializeDeck(3);
+            EnemyDeck.InitializeDeck(3);
 
             trake.Add(new CommonLibrary.Miscellaneous.Line(1, LineColor.PLAVA));
             trake.Add(new CommonLibrary.Miscellaneous.Line(2, LineColor.PLAVA));
@@ -66,7 +68,12 @@ namespace Castle_Defense_Client
             karte.Cards.Add(Deck.GetRadnomCard());
             karte.Cards.Add(Deck.GetRadnomCard());
 
+            EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
+
+            BoardAdvance();
+
             SwitchScreens();
+            //do ovde je posao servera
 
             Dispatcher.Invoke(() => { Render(); });
         }
@@ -100,6 +107,11 @@ namespace Castle_Defense_Client
             }
             ((TextBox)sender).Text = e.Text.Substring(e.Text.Length - 1, 1);
             e.Handled = true;
+        }
+
+        private void BoardAdvance() 
+        {
+            foreach (CommonLibrary.Miscellaneous.Line l in trake) l.Advance();
         }
 
         private void SwitchScreens() 
@@ -169,16 +181,59 @@ namespace Castle_Defense_Client
 
         private void discard_btn_Click(object sender, RoutedEventArgs e)
         {
+            // logika za discard, serveru samo treba da se posalje karta umesto da je ovde dodajemo
+            int cardIndx = int.Parse(choosenCard.Text);
+            if (cardIndx < 1 || cardIndx > karte.Cards.Count) return;
+            cardIndx--;
 
+            if (discarded) return;
+
+            discarded = true;
+            Deck.ReturnCard(karte.Cards[cardIndx]);//umesto ovoga salji serveru kartu
+            karte.Cards.RemoveAt(cardIndx);
+
+            discarded = false; // ovo treba da resetuje kada mu server da naznaku da nam je ponovo krenuo potez
+
+            Dispatcher.Invoke(() => { Render(); });
         }
 
         private void pass_btn_Click(object sender, RoutedEventArgs e)
-        {
-
+        {   //logika za teoretski kraj poteza, mozes izignorisati treba da se zameni sa serverom
+            //server treba da da enemy i karte, ostalo ostaje
+            BoardAdvance();
+            EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
+            for (int i = 5 - (5 - karte.Cards.Count); i < 5; i++) karte.Cards.Add(Deck.GetRadnomCard());
+            Dispatcher.Invoke(() => { Render(); });
         }
 
         private void play_btn_Click(object sender, RoutedEventArgs e)
         {
+            //logika za igranje karata, treba dodati deo koji ce serveru poslati koja je karta odigrana
+            int cardIndx = int.Parse(choosenCard.Text);
+            if (cardIndx < 1 || cardIndx > (karte.Cards.Count - 1)) return;
+            cardIndx--;
+            int unetaTrakaIndx = int.Parse(unetaTraka.Text);
+            if (unetaTrakaIndx < 1 || unetaTrakaIndx > (trake.Count-  1) || karte.Cards.Count==0) return;
+            unetaTrakaIndx--;
+            int unetaZoneIndx = int.Parse(unetaStaza.Text);
+            int unetEnemyIndx = int.Parse(unetNeprijatelj.Text);
+
+            Card odigrana = karte.Cards[cardIndx].Play(karte.Cards, trake[unetaTrakaIndx], unetaZoneIndx, unetEnemyIndx);
+
+            if (odigrana!=null) 
+            {
+                //karta uspesno odigrana, smestena u odigrana, pa se serveru moze proslediti ili ona ili index odigrane ili sta se vec odluci
+                //treba deo za server ovde
+                //znamo da je play uvek poslednji u potezu pa posle ovoga treba da cekamo da server da naznaku da mozemo da igramo opet
+                
+
+                //logika za teoretski kraj poteza, mozes izignorisati treba da se zameni sa serverom
+                //server treba da da enemy i karte, ostalo ostaje
+                BoardAdvance(); 
+                EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
+                for (int i = 5 - (5 - karte.Cards.Count); i < 5; i++) karte.Cards.Add(Deck.GetRadnomCard());
+                Dispatcher.Invoke(() => { Render(); });
+            }
 
         }
 
