@@ -12,7 +12,7 @@ namespace Castle_Defense_Client.Klijent
     {
         public const int SERVER_PORT = 51000;
 
-        static void Main(string[] args)
+        static void MainKlijent(string[] args)
         {
             Socket prijavaSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             IPEndPoint serverEP = new IPEndPoint(IPAddress.Loopback, SERVER_PORT); // Ovde cemo samo umesto IPAddress.Loopback da dodamo adresu koju igrac unese

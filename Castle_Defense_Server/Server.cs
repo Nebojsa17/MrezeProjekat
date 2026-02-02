@@ -1,11 +1,12 @@
-﻿using System;
+﻿using CommonLibrary;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Sockets;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
-using CommonLibrary;
 
 namespace Castle_Defense_Server
 {
@@ -84,10 +85,11 @@ namespace Castle_Defense_Server
             {
                 Console.WriteLine($"Greska prilikom slanja poruke: {e.Message}.\n");
             }
-
+            
             Console.WriteLine("Server zavrsava sa prijavom. Ocekuje se uspostava veze od strane igraca.");
             prijavaSocket.Close();
-
+            
+            
             Socket listenSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             listenSocket.Bind(new IPEndPoint(IPAddress.Any, SERVER_PORT));
             listenSocket.Listen(brojIgraca);
@@ -121,5 +123,6 @@ namespace Castle_Defense_Server
             }
             
         }
+
     }
 }
