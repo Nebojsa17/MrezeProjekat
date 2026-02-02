@@ -15,6 +15,13 @@ namespace CommonLibrary.Cards
         double width; 
         double height;
 
+        public Hand()
+        {
+            Cards = new List<Card>();
+            width = 0;
+            height = 0;
+        }
+
         public Hand(double width, double height) 
         {
             Cards = new List<Card>();

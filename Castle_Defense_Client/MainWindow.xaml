@@ -7,7 +7,7 @@
         mc:Ignorable="d"
         Title="Castle Defender" Height="800" Width="1200" HorizontalAlignment="Center" VerticalAlignment="Center" WindowStartupLocation="CenterScreen">
  
-    <TabControl Background="Black">
+    <TabControl Background="Black" SelectionChanged="TabControl_SelectionChanged">
         <TabControl.Resources>
             <Style TargetType="TabItem">
                 <Setter Property="Visibility" Value="Collapsed"/>
