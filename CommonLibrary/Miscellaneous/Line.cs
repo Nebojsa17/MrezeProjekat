@@ -52,8 +52,8 @@ namespace CommonLibrary.Miscellaneous
         public bool DmgEnemy(int zoneIndx, int enemyIndx, int dmg) 
         {
             if (zoneIndx > 3 || zoneIndx < 0) return false;
-            if(enemyIndx == 0)return false;
-            if (GetZone(zoneIndx).Count < enemyIndx || GetZone(zoneIndx).Count==0) return false;
+            if(enemyIndx == 0){ MessageBox.Show("no bitches"); return false; }
+            if (GetZone(zoneIndx).Count < enemyIndx || GetZone(zoneIndx).Count==0) { MessageBox.Show("no bitches extra"); return false; }
 
             if (GetZone(zoneIndx)[enemyIndx - 1].TakeDmg(dmg)) 
             {

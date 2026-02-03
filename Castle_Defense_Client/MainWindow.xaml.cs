@@ -227,7 +227,7 @@ namespace Castle_Defense_Client
         {
             //logika za igranje karata, treba dodati deo koji ce serveru poslati koja je karta odigrana
             int cardIndx = int.Parse(choosenCard.Text);
-            if (cardIndx < 1 || cardIndx > (karte.Cards.Count - 1)) return;
+            if (cardIndx < 1 || cardIndx > karte.Cards.Count) return;
             cardIndx--;
             int unetaTrakaIndx = int.Parse(unetaTraka.Text);
             if (unetaTrakaIndx < 1 || unetaTrakaIndx > (trake.Count-  1) || karte.Cards.Count==0) return;
