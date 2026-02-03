@@ -67,7 +67,7 @@
                 </Grid.RowDefinitions>
 
                 <DockPanel Background="WhiteSmoke" Grid.Row="0" Width="1100" Height="500">
-                    <local:DrawingPanel x:Name="Screen" Width="1100" Height="500" ClipToBounds="True"></local:DrawingPanel>
+                    <local:DrawingPanel x:Name="Screen" MouseDown="Screen_MouseDown" Width="1100" Height="500" ClipToBounds="True"></local:DrawingPanel>
                 </DockPanel>
 
                 <Grid Grid.Row="1" Margin="5">

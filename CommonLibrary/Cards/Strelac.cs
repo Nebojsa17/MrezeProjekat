@@ -20,7 +20,7 @@ namespace CommonLibrary.Cards
 
         public override Card Play(List<Card> hand, Line traka, int zone, int enemy)
         {
-            if(zone != 1) return null;
+            if(zone != 1 && this.CColor != LineColor.LJUBICASTA) return null;
             if(this.CColor != LineColor.LJUBICASTA && traka.LColor != this.CColor) return null;
 
             if (!traka.DmgEnemy(zone, enemy, dmg)) return null;

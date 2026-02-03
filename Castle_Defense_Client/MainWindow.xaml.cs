@@ -70,7 +70,6 @@ namespace Castle_Defense_Client
             karte.Cards.Add(Deck.GetRadnomCard());
 
             EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
-
             BoardAdvance();
 
             SwitchScreens();
@@ -135,7 +134,17 @@ namespace Castle_Defense_Client
             Render();
         }
 
+        //dedatno za izbor traka/neprijatelja
+        private void Screen_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            Vector3D selectedTrio = mapa.GetSelected(e.GetPosition((DrawingPanel)sender));
 
+            unetaTraka.Text = selectedTrio.X.ToString();
+            unetaStaza.Text = selectedTrio.Y.ToString();
+            unetNeprijatelj.Text = selectedTrio.Z.ToString();
+
+            Render();
+        }
         private void ConnectBtn_Click(object sender, RoutedEventArgs e)
         {
             try

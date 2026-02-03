@@ -3,10 +3,12 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Media3D;
 using System.Xml.Linq;
 
 namespace CommonLibrary.Miscellaneous
@@ -50,7 +52,8 @@ namespace CommonLibrary.Miscellaneous
         public bool DmgEnemy(int zoneIndx, int enemyIndx, int dmg) 
         {
             if (zoneIndx > 3 || zoneIndx < 0) return false;
-            if (GetZone(zoneIndx).Count < (enemyIndx - 1) || GetZone(zoneIndx).Count==0) return false;
+            if(enemyIndx == 0)return false;
+            if (GetZone(zoneIndx).Count < enemyIndx || GetZone(zoneIndx).Count==0) return false;
 
             if (GetZone(zoneIndx)[enemyIndx - 1].TakeDmg(dmg)) 
             {
@@ -110,6 +113,32 @@ namespace CommonLibrary.Miscellaneous
                 default:
                     return Color.FromRgb(0, 0, 255);
             }
+        }
+
+        public int GetSelected(Point select, int zona, double height, Point origin)
+        {
+            if (GetZone(zona + 1).Count == 0) return 0;
+
+            int lineW = 42;
+            Rect r = new Rect(new Point(origin.X + lineW, origin.Y + zona*(height / 3)), new Point(origin.X - lineW, origin.Y + (zona+1) * (height / 3)));
+            double sampleWidth = r.Width / 2; 
+            double sampleHeight = r.Height / 2;
+            int enemyItt = 0;
+            for (int i = 0; i < 4; i++)
+            {
+                for (int j = 0; j < 2; j++)
+                {
+                    if (enemyItt >= GetZone(zona + 1).Count) return 0;
+
+                    if (select.X >= r.X + (j * sampleWidth) && select.X <= r.X + ((j + 1) * sampleWidth) && select.Y >= r.Y + (i) * sampleHeight && select.Y <= r.Y + (i + 1) * sampleHeight)
+                    {
+                        return enemyItt+1;
+                    }
+                    enemyItt++;
+                }
+            }
+
+            return 0;
         }
 
         public void Draw(DrawingContext dc, Point origin, double height, double maxHeight) 
