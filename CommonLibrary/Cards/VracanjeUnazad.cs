@@ -37,9 +37,9 @@ namespace CommonLibrary.Cards
         {
             return new VracanjeUnazad();
         }
-        public override void Draw(DrawingContext dc, Point origin)
+        public override void Draw(DrawingContext dc, Point origin, bool highlight)
         {
-            SolidColorBrush brush = Brushes.DimGray;
+            SolidColorBrush brush = highlight ? Brushes.DarkGray : Brushes.DimGray;
             Pen pen = new Pen(new SolidColorBrush(ConvertToColour()), 6);
 
             Rect r = new Rect(new Point(origin.X - cardWidth / 2, origin.Y - cardHeight / 2), new Point(origin.X + cardWidth / 2, origin.Y + cardHeight / 2));

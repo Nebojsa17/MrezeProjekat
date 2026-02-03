@@ -1,4 +1,5 @@
-﻿using CommonLibrary;
+﻿using Castle_Defense_Client.Elements;
+using CommonLibrary;
 using CommonLibrary.Cards;
 using CommonLibrary.Enemies;
 using CommonLibrary.Miscellaneous;
@@ -127,6 +128,13 @@ namespace Castle_Defense_Client
                 Meni.IsSelected = !Meni.IsSelected;
             }
         }
+        //dodatno za izbor karata
+        private void choosenCard_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            choosenCard.Text = karte.GetSelect(e.GetPosition((DrawingPanel)sender)).ToString();
+            Render();
+        }
+
 
         private void ConnectBtn_Click(object sender, RoutedEventArgs e)
         {
@@ -192,14 +200,14 @@ namespace Castle_Defense_Client
             Deck.ReturnCard(karte.Cards[cardIndx]);//umesto ovoga salji serveru kartu
             karte.Cards.RemoveAt(cardIndx);
 
-            discarded = false; // ovo treba da resetuje kada mu server da naznaku da nam je ponovo krenuo potez
-
             Dispatcher.Invoke(() => { Render(); });
         }
 
         private void pass_btn_Click(object sender, RoutedEventArgs e)
         {   //logika za teoretski kraj poteza, mozes izignorisati treba da se zameni sa serverom
             //server treba da da enemy i karte, ostalo ostaje
+
+            discarded = false; // ovo treba da resetuje kada mu server da naznaku da nam je ponovo krenuo potez
             BoardAdvance();
             EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
             for (int i = 5 - (5 - karte.Cards.Count); i < 5; i++) karte.Cards.Add(Deck.GetRadnomCard());
@@ -225,10 +233,11 @@ namespace Castle_Defense_Client
                 //karta uspesno odigrana, smestena u odigrana, pa se serveru moze proslediti ili ona ili index odigrane ili sta se vec odluci
                 //treba deo za server ovde
                 //znamo da je play uvek poslednji u potezu pa posle ovoga treba da cekamo da server da naznaku da mozemo da igramo opet
-                
+
 
                 //logika za teoretski kraj poteza, mozes izignorisati treba da se zameni sa serverom
                 //server treba da da enemy i karte, ostalo ostaje
+                discarded = false; // ovo treba da resetuje kada mu server da naznaku da nam je ponovo krenuo potez
                 BoardAdvance(); 
                 EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
                 for (int i = 5 - (5 - karte.Cards.Count); i < 5; i++) karte.Cards.Add(Deck.GetRadnomCard());
