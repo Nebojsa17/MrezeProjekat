@@ -17,17 +17,17 @@ namespace CommonLibrary.Enemies
         public static void InitializeDeck(int plNum)
         {
             deck.Clear();
-            deck.Add(new EnemyPair(new Goblin(), SlashInstance(plNum, 120)));/*
+            deck.Add(new EnemyPair(new Goblin(), SlashInstance(plNum, 120)));
             deck.Add(new EnemyPair(new Ork(), SlashInstance(plNum, 11)));
             deck.Add(new EnemyPair(new Trol(), SlashInstance(plNum, 8)));
-            deck.Add(new EnemyPair(new EnemyAdvance(LineColor.LJUBICASTA), SlashInstance(plNum, 1)));*/
+            deck.Add(new EnemyPair(new EnemyAdvance(LineColor.LJUBICASTA), SlashInstance(plNum, 1)));
         }
 
         private static int SlashInstance(int plNum, int inst)
         {
             if (inst <= 4 && plNum == 1) return 1;
             if (inst == 1 && plNum == 2) return 2;
-            return inst;
+            return inst/plNum;
         }
 
         public static Enemy GetRadnomEnemy()
