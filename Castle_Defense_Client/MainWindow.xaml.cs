@@ -72,7 +72,7 @@ namespace Castle_Defense_Client
             EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
             BoardAdvance();
 
-            SwitchScreens();
+            //SwitchScreens();
             //do ovde je posao servera
 
             Dispatcher.Invoke(() => { Render(); });
@@ -188,6 +188,8 @@ namespace Castle_Defense_Client
                 _sockTCP = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 _sockTCP.Connect(new IPEndPoint(IPAddress.Parse(tcpIP), tcpPort));
 
+                SwitchScreens();
+
             }
             catch (SocketException er)
             {
@@ -263,6 +265,11 @@ namespace Castle_Defense_Client
         private void close_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
+        }
+
+        private void TabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+
         }
 
         private void DisconnectBtn_Click(object sender, RoutedEventArgs e)
