@@ -48,7 +48,6 @@ namespace CommonLibrary.Enemies
             izabrana = deck[indx].Enemy.Copy();
             deck[indx].Num--;
 
-            MessageBox.Show("Odigran: "+izabrana.Name);
             return izabrana;
         }
     }
