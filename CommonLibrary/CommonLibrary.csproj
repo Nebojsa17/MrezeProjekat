@@ -61,6 +61,7 @@
     <Compile Include="Enemies\Trol.cs" />
     <Compile Include="Miscellaneous\Map.cs" />
     <Compile Include="Miscellaneous\Line.cs" />
+    <Compile Include="Miscellaneous\Packet.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Environment\IEnvironmentObject.cs" />
     <Compile Include="Environment\Tree.cs" />

@@ -19,12 +19,14 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Media.Media3D;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using Line = CommonLibrary.Miscellaneous.Line;
 
 namespace Castle_Defense_Client
 {
@@ -43,7 +45,7 @@ namespace Castle_Defense_Client
         DrawingVisual dvCards = new DrawingVisual();
         Map mapa;
         Hand karte;
-        List<CommonLibrary.Miscellaneous.Line> trake = new List<CommonLibrary.Miscellaneous.Line>();
+        List<Line> trake = new List<Line>();
 
         public MainWindow()
         {
@@ -52,6 +54,7 @@ namespace Castle_Defense_Client
             CardSpace.AddVisual(dvCards);
 
             //Ovaj sav posao ide serveru, treba da prosledi trake sa neprijateljima i karte
+            /*
             Deck.InitializeDeck(3);
             EnemyDeck.InitializeDeck(3);
 
@@ -73,23 +76,23 @@ namespace Castle_Defense_Client
 
             EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
             BoardAdvance();
-
+            Dispatcher.Invoke(() => { Render(); });
+            */
             //SwitchScreens();
             //do ovde je posao servera
 
-            Dispatcher.Invoke(() => { Render(); });
         }
 
         public void Render()
         {
             using (DrawingContext dc = dvGame.RenderOpen())
             {
-                mapa.Draw(dc);
+               if(mapa != null) mapa.Draw(dc);
             }
 
             using (DrawingContext dc = dvCards.RenderOpen())
             {
-                karte.Draw(dc);
+               if(karte != null) karte.Draw(dc);
             }
         }
 
@@ -190,8 +193,13 @@ namespace Castle_Defense_Client
                 _sockTCP = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 _sockTCP.Connect(new IPEndPoint(IPAddress.Parse(tcpIP), tcpPort));
 
+                _cts = new CancellationTokenSource();
+                _rxTask = Task.Run(() => { RecieveLoop(_cts.Token); },_cts.Token );
+                discard_btn.IsEnabled = true;
+                play_btn.IsEnabled = true;
+                swap_btn.IsEnabled = true;
+                pass_btn.IsEnabled = true;
                 SwitchScreens();
-
             }
             catch (SocketException er)
             {
@@ -200,6 +208,120 @@ namespace Castle_Defense_Client
             }
         }
 
+        private void RecieveLoop(CancellationToken token) 
+        {
+            while (!token.IsCancellationRequested) 
+            {
+                byte[] buf = new byte[4096 * 2];
+
+                while (!token.IsCancellationRequested)
+                {
+                    Socket s = _sockTCP;
+                    if (s == null) break;
+
+                    try
+                    {
+                        int n = s.Receive(buf);
+                        if (n == 0)
+                        {
+                            Log("Server je zatvorio konekciju.");
+                            Dispatcher.Invoke(() => Disconnect());
+                            break;
+                        }
+
+                        BinaryFormatter formatter = new BinaryFormatter();
+
+                        using (MemoryStream ms = new MemoryStream(buf))
+                        {
+                            Packet paket = (Packet)formatter.Deserialize(ms);
+                            Dispatcher.Invoke(() => ObradiPaket(paket));
+                        }
+                    }
+                    catch (SocketException ex)
+                    {
+                        Log("SocketException: " + ex.SocketErrorCode);
+                        Dispatcher.Invoke(() => Disconnect());
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log("Receive error: " + ex.Message);
+                        Dispatcher.Invoke(() => Disconnect());
+                        break;
+                    }
+                }
+            }
+        }
+
+        private void ObradiPaket(Packet packet) 
+        {
+            switch (packet.Vrsta) 
+            {
+                case PacketType.HAND:
+                    karte = new Hand(CardSpace.Width, CardSpace.Height);
+                    this.karte.Cards = (List<Card>)packet.Sadrzaj;
+                    break;
+                case PacketType.INILINES:
+                    this.trake = (List<Line>)packet.Sadrzaj;
+                    mapa = new Map(Screen.Width, Screen.Height, trake);
+                    break;
+            }
+
+            Render();
+        }
+
+        private void Log(string line)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                gameLog.Text = line;
+            });
+        }
+        private void Posalji(Socket s, Packet paket) 
+        {
+            byte[] buffer = new byte[1024];
+
+            try
+            {
+                using (MemoryStream ms = new MemoryStream())
+                {
+                    BinaryFormatter bf = new BinaryFormatter();
+                    bf.Serialize(ms, paket);
+                    buffer = ms.ToArray();
+                }
+
+                _sockTCP.Send(buffer);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+        }
+        private void Disconnect()
+        {
+            try
+            {
+                if (_cts != null) _cts.Cancel();
+
+                if (_sockTCP != null)
+                {
+                    try { _sockTCP.Shutdown(SocketShutdown.Both); } catch { }
+                    try { _sockTCP.Close(); } catch { }
+                }
+                _sockTCP = null;
+
+                discard_btn.IsEnabled = false;
+                play_btn.IsEnabled = false;
+                swap_btn.IsEnabled = false;
+                pass_btn.IsEnabled = false;
+
+                Log("Diskonektovan.");
+            }
+            catch (Exception ex)
+            {
+                Log("Disconnect error: " + ex.Message);
+            }
+        }
         private void discard_btn_Click(object sender, RoutedEventArgs e)
         {
             // logika za discard, serveru samo treba da se posalje karta umesto da je ovde dodajemo
@@ -213,22 +335,7 @@ namespace Castle_Defense_Client
 
             byte[] karteBuffer = new byte[1024];
 
-            try
-            {
-                using (MemoryStream ms = new MemoryStream())
-                {
-                    BinaryFormatter bf = new BinaryFormatter();
-                    bf.Serialize(ms, karte.Cards[cardIndx]);
-                    karteBuffer = ms.ToArray();
-                }
-
-                _sockTCP.Send(karteBuffer);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-            }
-
+            Posalji(_sockTCP ,new Packet(PacketType.DISCARD, karte.Cards[cardIndx]));
             karte.Cards.RemoveAt(cardIndx);
 
             Dispatcher.Invoke(() => { Render(); });

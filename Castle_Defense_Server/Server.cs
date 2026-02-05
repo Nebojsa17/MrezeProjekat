@@ -19,6 +19,8 @@ namespace Castle_Defense_Server
     public class Server
     {
         public const int SERVER_PORT = 51000;
+        public static List<Line> trake = new List<Line>();
+        public static Random localRandom = new Random();
 
         static void Main(string[] args)
         {
@@ -40,12 +42,10 @@ namespace Castle_Defense_Server
                     Console.WriteLine($"Greska prilikom unosa: {e.Message}.\n");
                     return;
                 }
-                
+
             } while (brojIgraca < 1 || brojIgraca > 3);
 
-            int brojTraka = brojIgraca * 2;
-            LineColor boja = LineColor.PLAVA;
-
+            #region POCETNA UDP POVEZIVANJA
             // Otvaranje UDP uticnice za prijavu igraca
 
             Socket prijavaSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
@@ -80,7 +80,7 @@ namespace Castle_Defense_Server
                     Console.WriteLine($"Greska prilikom prijema poruke: {e.Message}.\n");
                 }
             }
-            
+
             try
             {
                 string tcpInfo = $"{GetLocalIPAddress()}:{SERVER_PORT}";
@@ -95,11 +95,12 @@ namespace Castle_Defense_Server
             {
                 Console.WriteLine($"Greska prilikom slanja poruke: {e.Message}.\n");
             }
-            
+
             Console.WriteLine("Server zavrsava sa prijavom. Ocekuje se uspostava veze od strane igraca.");
             prijavaSocket.Close();
-            
-            
+            #endregion
+
+            #region TCP POVEZIVANJA
             Socket listenSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             listenSocket.Bind(new IPEndPoint(IPAddress.Any, SERVER_PORT));
             listenSocket.Blocking = false;
@@ -107,87 +108,135 @@ namespace Castle_Defense_Server
 
             Console.WriteLine("Server slusa...");
 
-            for (int i = 0; i < brojIgraca; i++)
+            while (igraciSoketi.Count < brojIgraca)
             {
-                Socket klijentSocket = listenSocket.Accept();
-                klijentSocket.Blocking = false;
-                igraciSoketi.Add(klijentSocket);
-                Console.WriteLine("Klijent povezan.");
-            }
-
-            // Slanje karata klijentima
-
-            try
-            {
-                for (int i = 0; i < brojIgraca; i++)
+                if (listenSocket == null)
                 {
-                    Hand karte = new Hand();
-                    byte[] karteBuffer = new byte[1024];
+                    Thread.Sleep(50);
+                    continue;
+                }
 
-                    for (int j = 0; j < 5; j++)
-                    {
-                        karte.Cards.Add(Deck.GetRadnomCard());
-                    }
+                List<Socket> readList = new List<Socket>();
+                readList.Add(listenSocket);
 
-                    using (MemoryStream ms = new MemoryStream())
+                try
+                {
+                    Socket.Select(readList, null, null, 200000);
+                }
+                catch
+                {
+                    continue;
+                }
+                try
+                {
+                    Socket klijentSocket = listenSocket.Accept();
+                    klijentSocket.Blocking = false;
+                    igraciSoketi.Add(klijentSocket);
+                    Console.WriteLine("Klijent povezan.");
+                }
+
+                catch (SocketException)
+                {
+                    // ignore (non-blocking accept race)
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Accept error: " + ex.Message);
+                }
+                #endregion
+            }
+            GenerateGame(brojIgraca, igraciSoketi);
+
+            // Vracanje karata serveru
+            /*
+            while (true) // dodati uslov za izlazak iz ovoga
+            {
+                List<Socket> soketi = new List<Socket>(igraciSoketi);
+
+                Socket.Select(soketi, null, null, 1_000_000);
+
+                foreach (Socket s in soketi)
+                {
+                    byte[] recvBuffer = new byte[1024];
+                    int recvBytes = s.Receive(recvBuffer);
+
+                    Card vracenaKarta;
+
+                    using (MemoryStream ms = new MemoryStream(recvBuffer))
                     {
                         BinaryFormatter bf = new BinaryFormatter();
-                        bf.Serialize(ms, karte);
-                        karteBuffer = ms.ToArray();
+                        vracenaKarta = (Card)bf.Deserialize(ms);
                     }
 
-                    igraciSoketi[i].Send(karteBuffer);
+                    Deck.ReturnCard(vracenaKarta); // ako se salje karta
+
+                    string poruka = Encoding.UTF8.GetString(recvBuffer); // ako se salje obicna poruka
                 }
-            }
-            catch (Exception e)
+        
+            }*/
+
+            Console.ReadKey();
+        }
+
+        public static string GetLocalIPAddress() // Pomocna metoda za dobavljanje IP adrese servera
+        {
+            var host = Dns.GetHostEntry(Dns.GetHostName());
+            
+            try
             {
-                Console.WriteLine(e.ToString());
-            }
-
-            // Kreiranje traka
-
-            List<Line> trake = new List<Line>();
-
-            for (int i = 0; i < brojTraka; i++)
-            {
-                Line traka = new Line(i + 1, boja);
-                trake.Add(traka);
-
-                if (i != 0 && i % 2 == 0)
+                foreach (var ip in host.AddressList)
                 {
-                    boja++;
+                    if (ip.AddressFamily == AddressFamily.InterNetwork) return ip.ToString();
                 }
+
+                return string.Empty;
             }
+            catch
+            {
+                Console.WriteLine($"Greska prilikom pribavljanja adrese.\n");
+                return string.Empty;
+            }
+            
+        }
 
-            // Inicijalno rasporedjivanje protivnika
-
+        public static void GenerateGame(int brojIgraca, List<Socket> klijenti)
+        {
+            Console.WriteLine("Priprema igru za "+ klijenti.Count + ". igraca");
+            #region Inicijalizacija traka
+            for (int i = 1; i <= brojIgraca; i++) 
+            {
+                int br = i * 2;
+                trake.Add(new Line(br - 1, (LineColor)i));
+                trake.Add(new Line(br, (LineColor)i));
+            }
+            Console.WriteLine("Gotovo "+trake.Count+" traka");
+            #endregion
+            #region Dodavanje Neprijatelja
+            EnemyDeck.InitializeDeck(brojIgraca);
             if (brojIgraca == 1)
             {
-                int brTrake = new Random().Next(0, 2);
+                int brTrake = localRandom.Next(0, 2);
 
                 trake[brTrake].StrelacZona.Add(new Goblin());
                 trake[1 - brTrake].StrelacZona.Add(new Ork());
             }
             else if (brojIgraca == 2)
             {
-                Random r = new Random();
                 List<int> brTrake = new List<int> { 0, 1, 2, 3 };
-                int ind = r.Next(0, brTrake.Count);
+                int ind = localRandom.Next(0, brTrake.Count);
 
                 trake[ind].StrelacZona.Add(new Goblin());
 
                 brTrake.RemoveAt(ind);
-                ind = r.Next(0, brTrake.Count);
+                ind = localRandom.Next(0, brTrake.Count);
 
                 trake[ind].StrelacZona.Add(new Goblin());
 
                 brTrake.RemoveAt(ind);
-                ind = r.Next(0, brTrake.Count);
-
+                ind = localRandom.Next(0, brTrake.Count);
                 trake[ind].StrelacZona.Add(new Ork());
 
                 brTrake.RemoveAt(ind);
-
                 trake[0].StrelacZona.Add(new Trol());
             }
             else if (brojIgraca == 3)
@@ -222,77 +271,44 @@ namespace Castle_Defense_Server
 
                 trake[0].StrelacZona.Add(new Trol());
             }
+            Console.WriteLine("Gotovi neprijatelji");
+            #endregion
+            #region Generisanje Karata
+            Deck.InitializeDeck(brojIgraca);
+            for(int i=0; i<brojIgraca; i++) 
+            {
+                List<Card> karte = new List<Card>();
+                for(int j=0; j<5; j++) 
+                {
+                    karte.Add(Deck.GetRadnomCard());
+                }
+                Posalji(klijenti[i], new Packet(PacketType.HAND, karte));
+            }
+            Console.WriteLine("Gotove karte");
+            #endregion
 
-            byte[] trakeBuffer = new byte[1024];
+            foreach (Socket s in klijenti) Posalji(s, new Packet(PacketType.INILINES,trake));
+        }
 
+        public static void Posalji(Socket sock, Packet paket)
+        {
             try
             {
+                byte[] paketBuffer = new byte[4096 * 2];
+
                 using (MemoryStream ms = new MemoryStream())
                 {
                     BinaryFormatter bf = new BinaryFormatter();
-                    bf.Serialize(ms, trake);
-                    trakeBuffer = ms.ToArray();
+                    bf.Serialize(ms, paket);
+                    paketBuffer = ms.ToArray();
                 }
 
-                for (int i = 0; i < brojIgraca; i++)
-                {
-                    igraciSoketi[i].Send(trakeBuffer);
-                }
+                sock.Send(paketBuffer);
             }
             catch (Exception e)
             {
-                Console.WriteLine(e.Message);
+                Console.WriteLine(e.ToString());
             }
-
-            // Vracanje karata serveru
-
-            while (true) // dodati uslov za izlazak iz ovoga
-            {
-                List<Socket> soketi = new List<Socket>(igraciSoketi);
-
-                Socket.Select(soketi, null, null, 1_000_000);
-
-                foreach (Socket s in soketi)
-                {
-                    byte[] recvBuffer = new byte[1024];
-                    int recvBytes = s.Receive(recvBuffer);
-
-                    /*Card vracenaKarta;
-
-                    using (MemoryStream ms = new MemoryStream(recvBuffer))
-                    {
-                        BinaryFormatter bf = new BinaryFormatter();
-                        vracenaKarta = (Card)bf.Deserialize(ms);
-                    }
-
-                    Deck.ReturnCard(vracenaKarta);*/ // ako se salje karta
-
-                    string poruka = Encoding.UTF8.GetString(recvBuffer); // ako se salje obicna poruka
-                }
-
-                break;
-            }
-        }
-
-        public static string GetLocalIPAddress() // Pomocna metoda za dobavljanje IP adrese servera
-        {
-            var host = Dns.GetHostEntry(Dns.GetHostName());
-            
-            try
-            {
-                foreach (var ip in host.AddressList)
-                {
-                    if (ip.AddressFamily == AddressFamily.InterNetwork) return ip.ToString();
-                }
-
-                return string.Empty;
-            }
-            catch
-            {
-                Console.WriteLine($"Greska prilikom pribavljanja adrese.\n");
-                return string.Empty;
-            }
-            
         }
 
     }
