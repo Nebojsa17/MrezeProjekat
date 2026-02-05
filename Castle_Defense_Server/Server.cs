@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.Serialization.Formatters.Binary;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -101,6 +102,7 @@ namespace Castle_Defense_Server
             
             Socket listenSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             listenSocket.Bind(new IPEndPoint(IPAddress.Any, SERVER_PORT));
+            listenSocket.Blocking = false;
             listenSocket.Listen(brojIgraca);
 
             Console.WriteLine("Server slusa...");
@@ -108,6 +110,7 @@ namespace Castle_Defense_Server
             for (int i = 0; i < brojIgraca; i++)
             {
                 Socket klijentSocket = listenSocket.Accept();
+                klijentSocket.Blocking = false;
                 igraciSoketi.Add(klijentSocket);
                 Console.WriteLine("Klijent povezan.");
             }
@@ -239,6 +242,35 @@ namespace Castle_Defense_Server
             catch (Exception e)
             {
                 Console.WriteLine(e.Message);
+            }
+
+            // Vracanje karata serveru
+
+            while (true) // dodati uslov za izlazak iz ovoga
+            {
+                List<Socket> soketi = new List<Socket>(igraciSoketi);
+
+                Socket.Select(soketi, null, null, 1_000_000);
+
+                foreach (Socket s in soketi)
+                {
+                    byte[] recvBuffer = new byte[1024];
+                    int recvBytes = s.Receive(recvBuffer);
+
+                    /*Card vracenaKarta;
+
+                    using (MemoryStream ms = new MemoryStream(recvBuffer))
+                    {
+                        BinaryFormatter bf = new BinaryFormatter();
+                        vracenaKarta = (Card)bf.Deserialize(ms);
+                    }
+
+                    Deck.ReturnCard(vracenaKarta);*/ // ako se salje karta
+
+                    string poruka = Encoding.UTF8.GetString(recvBuffer); // ako se salje obicna poruka
+                }
+
+                break;
             }
         }
 
