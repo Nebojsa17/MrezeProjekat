@@ -65,6 +65,10 @@
     <Compile Include="Environment\IEnvironmentObject.cs" />
     <Compile Include="Environment\Tree.cs" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Content Include="Enemies\Sprites\GoblinSprite.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
