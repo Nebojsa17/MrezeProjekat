@@ -67,7 +67,7 @@
                 </Grid.RowDefinitions>
 
                 <DockPanel Background="WhiteSmoke" Grid.Row="0" Width="1100" Height="500">
-                    <local:DrawingPanel x:Name="Screen" Width="1100" Height="500" ClipToBounds="True"></local:DrawingPanel>
+                    <local:DrawingPanel x:Name="Screen" MouseDown="Screen_MouseDown" Width="1100" Height="500" ClipToBounds="True"></local:DrawingPanel>
                 </DockPanel>
 
                 <Grid Grid.Row="1" Margin="5">
@@ -84,8 +84,9 @@
 
                         <DockPanel Grid.Row="0" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="70,0,0,0">
                             <DockPanel Background="LightGray" Height="120" VerticalAlignment="Top">
-                                <local:DrawingPanel x:Name="CardSpace" Width="600" Height="120" ClipToBounds="True"></local:DrawingPanel>
+                                <local:DrawingPanel x:Name="CardSpace" Width="600" Height="120" MouseDown="choosenCard_MouseDown" ClipToBounds="True"></local:DrawingPanel>
                             </DockPanel>
+                            <!--IZBOR CARATA-->
                             <TextBox x:Name="choosenCard" BorderThickness="5" Margin="5,0,0,0" PreviewTextInput="NumberBox_PreviewTextInput" Width="40" Height="70" FontSize="44" BorderBrush="Black">0</TextBox>
                         </DockPanel>
                         <Grid Grid.Row="1" Margin="70,0,0,0">

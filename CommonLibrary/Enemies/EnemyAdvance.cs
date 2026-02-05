@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 namespace CommonLibrary.Enemies
 {
+    [Serializable]
     public class EnemyAdvance : Enemy
     {
         private LineColor strikeColor;
@@ -21,6 +22,10 @@ namespace CommonLibrary.Enemies
             {
                 if(l.LColor==strikeColor)l.Advance();
             }
+        }
+        public override Enemy Copy()
+        {
+            return new EnemyAdvance((LineColor)EnemyDeck.random.Next(0,2));
         }
     }
 }

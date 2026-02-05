@@ -10,9 +10,10 @@ using System.Windows.Media;
 
 namespace CommonLibrary.Enemies
 {
+    [Serializable]
     public class Enemy
     {
-        string Name { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
 
         int HP { get; set; } = 0;
 
@@ -40,6 +41,11 @@ namespace CommonLibrary.Enemies
             FormattedText text = new FormattedText(" "+Name+"\n "+HP, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface("Sagoe UI"), 12, Brushes.Black,3);
 
             dc.DrawText(text, (Point)Point.Subtract(origin,new Point(Name.Length*4,0)));
+        }
+
+        public virtual Enemy Copy() 
+        {
+            return null;
         }
     }
 }

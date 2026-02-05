@@ -1,4 +1,5 @@
-﻿using CommonLibrary;
+﻿using Castle_Defense_Client.Elements;
+using CommonLibrary;
 using CommonLibrary.Cards;
 using CommonLibrary.Enemies;
 using CommonLibrary.Miscellaneous;
@@ -30,6 +31,7 @@ namespace Castle_Defense_Client
         //For web
         public const int SERVER_PORT = 51000;
         private Socket _sockUDP, _sockTCP;
+        private bool discarded = false;
         private CancellationTokenSource _cts;
         private Task _rxTask;
 
@@ -47,8 +49,9 @@ namespace Castle_Defense_Client
             Screen.AddVisual(dvGame);
             CardSpace.AddVisual(dvCards);
 
-
+            //Ovaj sav posao ide serveru, treba da prosledi trake sa neprijateljima i karte
             Deck.InitializeDeck(3);
+            EnemyDeck.InitializeDeck(3);
 
             trake.Add(new CommonLibrary.Miscellaneous.Line(1, LineColor.PLAVA));
             trake.Add(new CommonLibrary.Miscellaneous.Line(2, LineColor.PLAVA));
@@ -66,7 +69,11 @@ namespace Castle_Defense_Client
             karte.Cards.Add(Deck.GetRadnomCard());
             karte.Cards.Add(Deck.GetRadnomCard());
 
+            EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
+            BoardAdvance();
+
             SwitchScreens();
+            //do ovde je posao servera
 
             Dispatcher.Invoke(() => { Render(); });
         }
@@ -102,6 +109,11 @@ namespace Castle_Defense_Client
             e.Handled = true;
         }
 
+        private void BoardAdvance() 
+        {
+            foreach (CommonLibrary.Miscellaneous.Line l in trake) l.Advance();
+        }
+
         private void SwitchScreens() 
         {
             if (Meni.IsSelected)
@@ -115,7 +127,24 @@ namespace Castle_Defense_Client
                 Meni.IsSelected = !Meni.IsSelected;
             }
         }
+        //dodatno za izbor karata
+        private void choosenCard_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            choosenCard.Text = karte.GetSelect(e.GetPosition((DrawingPanel)sender)).ToString();
+            Render();
+        }
 
+        //dedatno za izbor traka/neprijatelja
+        private void Screen_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            Vector3D selectedTrio = mapa.GetSelected(e.GetPosition((DrawingPanel)sender));
+
+            unetaTraka.Text = selectedTrio.X.ToString();
+            unetaStaza.Text = selectedTrio.Y.ToString();
+            unetNeprijatelj.Text = selectedTrio.Z.ToString();
+
+            Render();
+        }
         private void ConnectBtn_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -169,16 +198,60 @@ namespace Castle_Defense_Client
 
         private void discard_btn_Click(object sender, RoutedEventArgs e)
         {
+            // logika za discard, serveru samo treba da se posalje karta umesto da je ovde dodajemo
+            int cardIndx = int.Parse(choosenCard.Text);
+            if (cardIndx < 1 || cardIndx > karte.Cards.Count) return;
+            cardIndx--;
 
+            if (discarded) return;
+
+            discarded = true;
+            Deck.ReturnCard(karte.Cards[cardIndx]);//umesto ovoga salji serveru kartu
+            karte.Cards.RemoveAt(cardIndx);
+
+            Dispatcher.Invoke(() => { Render(); });
         }
 
         private void pass_btn_Click(object sender, RoutedEventArgs e)
-        {
+        {   //logika za teoretski kraj poteza, mozes izignorisati treba da se zameni sa serverom
+            //server treba da da enemy i karte, ostalo ostaje
 
+            discarded = false; // ovo treba da resetuje kada mu server da naznaku da nam je ponovo krenuo potez
+            BoardAdvance();
+            EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
+            for (int i = 5 - (5 - karte.Cards.Count); i < 5; i++) karte.Cards.Add(Deck.GetRadnomCard());
+            Dispatcher.Invoke(() => { Render(); });
         }
 
         private void play_btn_Click(object sender, RoutedEventArgs e)
         {
+            //logika za igranje karata, treba dodati deo koji ce serveru poslati koja je karta odigrana
+            int cardIndx = int.Parse(choosenCard.Text);
+            if (cardIndx < 1 || cardIndx > karte.Cards.Count) return;
+            cardIndx--;
+            int unetaTrakaIndx = int.Parse(unetaTraka.Text);
+            if (unetaTrakaIndx < 1 || unetaTrakaIndx > (trake.Count-  1) || karte.Cards.Count==0) return;
+            unetaTrakaIndx--;
+            int unetaZoneIndx = int.Parse(unetaStaza.Text);
+            int unetEnemyIndx = int.Parse(unetNeprijatelj.Text);
+
+            Card odigrana = karte.Cards[cardIndx].Play(karte.Cards, trake[unetaTrakaIndx], unetaZoneIndx, unetEnemyIndx);
+
+            if (odigrana!=null) 
+            {
+                //karta uspesno odigrana, smestena u odigrana, pa se serveru moze proslediti ili ona ili index odigrane ili sta se vec odluci
+                //treba deo za server ovde
+                //znamo da je play uvek poslednji u potezu pa posle ovoga treba da cekamo da server da naznaku da mozemo da igramo opet
+
+
+                //logika za teoretski kraj poteza, mozes izignorisati treba da se zameni sa serverom
+                //server treba da da enemy i karte, ostalo ostaje
+                discarded = false; // ovo treba da resetuje kada mu server da naznaku da nam je ponovo krenuo potez
+                BoardAdvance(); 
+                EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
+                for (int i = 5 - (5 - karte.Cards.Count); i < 5; i++) karte.Cards.Add(Deck.GetRadnomCard());
+                Dispatcher.Invoke(() => { Render(); });
+            }
 
         }
 

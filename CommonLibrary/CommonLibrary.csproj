@@ -47,9 +47,15 @@
     <Compile Include="Cards\Card.cs" />
     <Compile Include="Cards\Deck.cs" />
     <Compile Include="Cards\Hand.cs" />
+    <Compile Include="Cards\Heroj.cs" />
+    <Compile Include="Cards\Macevalac.cs" />
     <Compile Include="Cards\Strelac.cs" />
+    <Compile Include="Cards\Varvarin.cs" />
+    <Compile Include="Cards\Vitez.cs" />
+    <Compile Include="Cards\VracanjeUnazad.cs" />
     <Compile Include="Enemies\Enemy.cs" />
     <Compile Include="Enemies\EnemyAdvance.cs" />
+    <Compile Include="Enemies\EnemyDeck.cs" />
     <Compile Include="Enemies\Goblin.cs" />
     <Compile Include="Enemies\Ork.cs" />
     <Compile Include="Enemies\Trol.cs" />
