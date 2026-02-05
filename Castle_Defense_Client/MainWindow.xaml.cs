@@ -6,9 +6,11 @@ using CommonLibrary.Miscellaneous;
 using CommonLibrary.Sprites;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -72,7 +74,7 @@ namespace Castle_Defense_Client
             EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
             BoardAdvance();
 
-            SwitchScreens();
+            //SwitchScreens();
             //do ovde je posao servera
 
             Dispatcher.Invoke(() => { Render(); });
@@ -188,6 +190,8 @@ namespace Castle_Defense_Client
                 _sockTCP = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 _sockTCP.Connect(new IPEndPoint(IPAddress.Parse(tcpIP), tcpPort));
 
+                SwitchScreens();
+
             }
             catch (SocketException er)
             {
@@ -206,7 +210,25 @@ namespace Castle_Defense_Client
             if (discarded) return;
 
             discarded = true;
-            Deck.ReturnCard(karte.Cards[cardIndx]);//umesto ovoga salji serveru kartu
+
+            byte[] karteBuffer = new byte[1024];
+
+            try
+            {
+                using (MemoryStream ms = new MemoryStream())
+                {
+                    BinaryFormatter bf = new BinaryFormatter();
+                    bf.Serialize(ms, karte.Cards[cardIndx]);
+                    karteBuffer = ms.ToArray();
+                }
+
+                _sockTCP.Send(karteBuffer);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+
             karte.Cards.RemoveAt(cardIndx);
 
             Dispatcher.Invoke(() => { Render(); });
@@ -263,6 +285,11 @@ namespace Castle_Defense_Client
         private void close_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
+        }
+
+        private void TabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+
         }
 
         private void DisconnectBtn_Click(object sender, RoutedEventArgs e)
