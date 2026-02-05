@@ -10,10 +10,11 @@ using System.Windows.Media;
 
 namespace CommonLibrary.Cards
 {
+    [Serializable]
     public abstract class Card
     {
-        const double cardWidth = 80;
-        const double cardHeight = 100;
+        protected const double cardWidth = 80;
+        protected const double cardHeight = 100;
 
         public string Name { get; set; }
         public string Effect { get; set; }
@@ -26,21 +27,21 @@ namespace CommonLibrary.Cards
             CColor = color;
         }
 
-        public virtual void Draw(DrawingContext dc, Point origin) 
+        public virtual void Draw(DrawingContext dc, Point origin, bool highlight) 
         {
-            SolidColorBrush brush = Brushes.DimGray;
+            SolidColorBrush brush = highlight? Brushes.DarkGray : Brushes.DimGray;
             Pen pen = new Pen(new SolidColorBrush(ConvertToColour()), 6);
 
             Rect r = new Rect(new Point(origin.X - cardWidth / 2, origin.Y - cardHeight / 2), new Point(origin.X + cardWidth / 2, origin.Y + cardHeight / 2));
             dc.DrawRoundedRectangle(brush, pen, r,4,4);
 
             FormattedText text = new FormattedText(Name, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface("Sagoe UI"), 14, Brushes.White, 2);
-            dc.DrawText(text, new Point(origin.X - Name.Length/2 * 10 , origin.Y - 30)); 
+            dc.DrawText(text, new Point(origin.X - Name.Length/2 * 9 , origin.Y - 30)); 
             
             text = new FormattedText(Effect, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface("Sagoe UI"), 8, Brushes.White, 2);
             dc.DrawText(text, new Point(origin.X - 35, origin.Y));
         }
-        private Color ConvertToColour()
+        protected Color ConvertToColour()
         {
             switch (CColor)
             {
@@ -57,7 +58,14 @@ namespace CommonLibrary.Cards
             }
         }
 
-        public abstract bool Play(List<Card> hand, Line traka, int zone, int enemy);
+        public override bool Equals(object obj)
+        {
+            if (obj.GetType() != this.GetType()) return false;
+
+            return ((Card)obj).Name == this.Name;
+        }
+
+        public abstract Card Play(List<Card> hand, Line traka, int zone, int enemy);
 
         public abstract Card Copy();
     }

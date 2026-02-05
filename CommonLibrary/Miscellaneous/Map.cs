@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Media;
+using System.Windows.Media.Media3D;
 
 namespace CommonLibrary.Miscellaneous
 {
@@ -30,6 +31,34 @@ namespace CommonLibrary.Miscellaneous
             trake = tr;
 
             Initialize();
+        }
+
+        public Vector3D GetSelected(Point select) 
+        {
+            int x = 0;
+            int y = 0;
+            int z = 0;
+
+            double lineAvailableWidth = actualSize.X / trake.Count;
+            double lineAvailableHeight = actualSize.Y - blockSize.Y * LineZone;
+            int itt = 0;
+            foreach (Line t in trake)
+            {
+                itt++;
+                Point center = new Point(lineAvailableWidth / 2 + lineAvailableWidth * (t.Broj - 1), blockSize.Y * LineZone);
+                double height = lineAvailableHeight - blockSize.Y;
+                double width = 42;
+
+                if(select.X >= center.X- width && select.X <= center.X + width && select.Y >= center.Y && select.Y <= center.Y + height) 
+                {
+                    x = itt;
+                    y = (int)((select.Y - blockSize.Y * LineZone)/(height/3))+1; 
+                    z = t.GetSelected(select,y-1,height, new Point(lineAvailableWidth / 2 + lineAvailableWidth * (t.Broj - 1), blockSize.Y * LineZone));
+                    break;
+                }
+            }
+
+            return new Vector3D(x, y, z);
         }
 
         public void Initialize() 
