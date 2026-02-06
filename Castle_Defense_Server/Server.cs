@@ -23,8 +23,10 @@ namespace Castle_Defense_Server
         public static Random localRandom = new Random();
         private static CancellationTokenSource _cts;
         private static bool GameRunning = true;
+        private static bool MyTurn = false;
         private static int turn = 0;
         private static Task _lTask;
+        private static readonly object _lock = new object();
         private static List<Socket> igraciSoketi = new List<Socket>(); 
 
         static void Main(string[] args)
@@ -161,9 +163,17 @@ namespace Castle_Defense_Server
 
             _lTask = Task.Run(() => { RecieveLoop(_cts.Token); });
 
+            Console.WriteLine("Pocetak igre!!!");
             while (GameRunning) 
             {
-
+                //pocetak nove runde
+                if(MyTurn) 
+                {
+                    foreach (Socket s in igraciSoketi) Posalji(s,new Packet(PacketType.CARDREQUEST,-1));
+                    MyTurn = false;
+                    Console.WriteLine("Kraj runde: "+turn/igraciSoketi.Count);
+                    Posalji(igraciSoketi[0], new Packet(PacketType.TURN, -1));
+                }
 
             }
 
@@ -191,36 +201,172 @@ namespace Castle_Defense_Server
             }
             
         }
-
+        static void SendFull(Socket socket, byte[] data)
+        {
+            int totalSent = 0;
+            while (totalSent < data.Length)
+            {
+                try
+                {
+                    int sent = socket.Send(data, totalSent, data.Length - totalSent, SocketFlags.None);
+                    if (sent == 0)
+                        throw new SocketException(); 
+                    totalSent += sent;
+                }
+                catch (SocketException ex) when (ex.SocketErrorCode == SocketError.WouldBlock)
+                {
+                    Thread.Sleep(1); 
+                }
+            }
+        }
         public static void RecieveLoop(CancellationToken token)
         {
-            List<Socket> listener = new List<Socket>();
-
+            #region old
+            /*
             while (!token.IsCancellationRequested) 
             {
-                foreach (Socket s in igraciSoketi) listener.Add(s);
+                List<Socket> listener = new List<Socket>(igraciSoketi);
 
-                Socket.Select(listener, null, null, 10000);
+                Socket.Select(listener, null, null, 1000);
 
-                foreach (Socket s in listener)
+                for (int i = 0; i < listener.Count; i++) 
                 {
-                    byte[] recvBuffer = new byte[4096 * 2];
-                    int recvBytes = s.Receive(recvBuffer);
-
-                    Packet primljenPaket;
-
-                    using (MemoryStream ms = new MemoryStream(recvBuffer))
+                    try
                     {
-                        BinaryFormatter bf = new BinaryFormatter();
-                        primljenPaket = (Packet)bf.Deserialize(ms);
-                        ObradiPaket(primljenPaket);
+                        if (listener[i].Available < 4)
+                            continue;
+                        byte[] recvBuffer = new byte[4096]; 
+
+                        byte[] lenBuf = ReceiveExact(listener[i], 4);
+                        int length = BitConverter.ToInt32(lenBuf, 0);
+                        recvBuffer = ReceiveExact(listener[i], length);
+
+                        Packet primljenPaket;
+
+                        using (MemoryStream ms = new MemoryStream(recvBuffer))
+                        {
+                            BinaryFormatter bf = new BinaryFormatter();
+                            primljenPaket = (Packet)bf.Deserialize(ms);
+                            ObradiPaket(primljenPaket, listener[i]);
+                        }
+                    }
+                    catch (SocketException ex) when (ex.SocketErrorCode == SocketError.WouldBlock)
+                    {
+                        continue;
+                    }
+                    catch (SocketException ex) 
+                    {
+                        try
+                        {
+                            if (_cts != null) _cts.Cancel();
+
+                            if (listener[i] != null)
+                            {
+                                try { listener[i].Shutdown(SocketShutdown.Both); } catch { }
+                                try { listener[i].Close(); } catch { }
+                            }
+                            listener[i] = null;
+                            listener.RemoveAt(i);
+                            i--;
+                            Console.WriteLine("Klijent se diskonektovao.");
+                            Console.WriteLine(ex.Message);
+                        }
+                        catch (Exception exs)
+                        {
+                            Console.WriteLine("Disconnect error: " + exs.Message);
+                        }
                     }
                 }
 
+            }*/
+            #endregion
+
+            while (!token.IsCancellationRequested)
+            {
+                List<Socket> readList = new List<Socket>();
+                lock (_lock)
+                {
+                    readList.AddRange(igraciSoketi);
+                }
+
+                try
+                {
+                    Socket.Select(readList, null, null, 200000);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                for (int i = 0; i < readList.Count; i++)
+                {
+                    if (token.IsCancellationRequested) break;
+
+                    ReceiveFromClient(readList[i]);
+                }
             }
+
         }
 
-        public static void ObradiPaket(Packet paket) 
+        private static void ReceiveFromClient(Socket client)
+        {
+            byte[] buf = new byte[4096];
+
+            try
+            {
+                int n = client.Receive(buf);
+                if (n == 0)
+                {
+                    RemoveClient(client, "Disconnected");
+                    return;
+                }
+
+                Packet primljenPaket;
+
+                using (MemoryStream ms = new MemoryStream(buf))
+                {
+                    BinaryFormatter bf = new BinaryFormatter();
+                    primljenPaket = (Packet)bf.Deserialize(ms);
+                    ObradiPaket(primljenPaket, client);
+                }
+
+
+            }
+            catch (SocketException ex)
+            {
+                RemoveClient(client, "SocketException: " + ex.SocketErrorCode);
+            }
+            catch (Exception ex)
+            {
+                RemoveClient(client, "Error: " + ex.Message);
+            }
+        }
+        
+        private static void RemoveClient(Socket client, string reason)
+        {
+            bool removed = false;
+            lock (_lock)
+            {
+                removed = igraciSoketi.Remove(client);
+            }
+
+            if (removed)
+            {
+                string ep = (client.RemoteEndPoint != null) ? client.RemoteEndPoint.ToString() : "unknown";
+                Console.WriteLine("[-] Klijent " + ep + " uklonjen (" + reason + ")");
+            }
+
+            SafeClose(client);
+        }
+
+        private static void SafeClose(Socket s)
+        {
+            if (s == null) return;
+            try { s.Shutdown(SocketShutdown.Both); } catch { }
+            try { s.Close(); } catch { }
+        }
+        
+        public static void ObradiPaket(Packet paket, Socket s) 
         {
             switch (paket.Vrsta) 
             {
@@ -230,14 +376,33 @@ namespace Castle_Defense_Server
                     Console.WriteLine("Vracena karta: "+vracena.Name+" - "+vracena.CColor);
                     break;
                 case PacketType.PLAYCARD:
-
+                    foreach(Socket igrac in igraciSoketi) 
+                    {
+                        if(igrac!=s)Posalji(igrac, new Packet(PacketType.PLAYCARD,(Card)paket.Sadrzaj));
+                    }
+                    Console.WriteLine("igrac "+s.RemoteEndPoint+" je odigrao: "+((Card)paket.Sadrzaj).Name +" - "+((Card)paket.Sadrzaj).CColor);
                     turn++;
+                    if (turn % igraciSoketi.Count == 0) MyTurn = true;
                     break;
                 case PacketType.PASS:
 
                     turn++;
+                    if (turn % igraciSoketi.Count == 0) MyTurn = true;
+                    break;
+                case PacketType.CARDREQUEST:
+                    for(int i = 0; i<(int)paket.Sadrzaj; i++) 
+                    {
+                        Card nabavljena = Deck.GetRadnomCard();
+                        if (nabavljena == null)
+                        {
+                            Posalji(s, new Packet(PacketType.NOCARD, -1));
+                        }
+                        else Posalji(s, new Packet(PacketType.CARD, nabavljena));
+                        Console.WriteLine("Saljem "+s.RemoteEndPoint+" klijentu kartu.");
+                    }
                     break;
             }
+
         }
 
         public static void GenerateGame(int brojIgraca, List<Socket> klijenti)
@@ -328,14 +493,24 @@ namespace Castle_Defense_Server
             Console.WriteLine("Gotove karte");
             #endregion
 
-            foreach (Socket s in klijenti) Posalji(s, new Packet(PacketType.INILINES,trake));
+            foreach (Socket s in klijenti)
+            {
+                foreach (Line l in trake)
+                {
+                    Posalji(s, new Packet(PacketType.INILINES, l));
+                }
+            }
+
+            Posalji(klijenti[0], new Packet(PacketType.TURN, -1));
         }
 
         public static void Posalji(Socket sock, Packet paket)
         {
             try
             {
-                byte[] paketBuffer = new byte[4096 * 2];
+                if (!sock.Connected) return;
+
+                byte[] paketBuffer = new byte[4096];
 
                 using (MemoryStream ms = new MemoryStream())
                 {
@@ -344,6 +519,9 @@ namespace Castle_Defense_Server
                     paketBuffer = ms.ToArray();
                 }
 
+                byte[] lengthPrefix = BitConverter.GetBytes(paketBuffer.Length);
+
+                SendFull(sock, lengthPrefix);
                 sock.Send(paketBuffer);
             }
             catch (Exception e)
@@ -351,6 +529,5 @@ namespace Castle_Defense_Server
                 Console.WriteLine(e.ToString());
             }
         }
-
     }
 }

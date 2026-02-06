@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace CommonLibrary.Miscellaneous
 {
 
-    public enum PacketType { DISCARD, PLAYENEMY, PLAYCARD, HAND, INILINES, PASS };
+    public enum PacketType { DISCARD, PLAYENEMY, PLAYCARD, HAND, INILINES, PASS, TURN, CARDREQUEST, CARD, NOCARD };
 
     [Serializable]
     public class Packet

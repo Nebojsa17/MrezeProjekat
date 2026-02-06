@@ -36,6 +36,7 @@ namespace Castle_Defense_Client
         public const int SERVER_PORT = 51000;
         private Socket _sockUDP, _sockTCP;
         private bool discarded = false;
+        private bool myTurn = false;
         private CancellationTokenSource _cts;
         private Task _rxTask;
 
@@ -212,7 +213,7 @@ namespace Castle_Defense_Client
         {
             while (!token.IsCancellationRequested) 
             {
-                byte[] buf = new byte[4096 * 2];
+                byte[] buf = new byte[4096];
 
                 while (!token.IsCancellationRequested)
                 {
@@ -221,13 +222,10 @@ namespace Castle_Defense_Client
 
                     try
                     {
-                        int n = s.Receive(buf);
-                        if (n == 0)
-                        {
-                            Log("Server je zatvorio konekciju.");
-                            Dispatcher.Invoke(() => Disconnect());
-                            break;
-                        }
+                        byte[] lenBuf = ReceiveExact(s, 4);
+                        int length = BitConverter.ToInt32(lenBuf, 0);
+                        if (length == 0) return;
+                        buf = ReceiveExact(s, length);
 
                         BinaryFormatter formatter = new BinaryFormatter();
 
@@ -236,15 +234,18 @@ namespace Castle_Defense_Client
                             Packet paket = (Packet)formatter.Deserialize(ms);
                             Dispatcher.Invoke(() => ObradiPaket(paket));
                         }
+
                     }
                     catch (SocketException ex)
                     {
+                        MessageBox.Show(ex.Message);
                         Log("SocketException: " + ex.SocketErrorCode);
                         Dispatcher.Invoke(() => Disconnect());
                         break;
                     }
                     catch (Exception ex)
                     {
+                        MessageBox.Show(ex.Message);
                         Log("Receive error: " + ex.Message);
                         Dispatcher.Invoke(() => Disconnect());
                         break;
@@ -252,18 +253,49 @@ namespace Castle_Defense_Client
                 }
             }
         }
-
+        private byte[] ReceiveExact(Socket sock, int size)
+        {
+            byte[] buffer = new byte[size];
+            int read = 0;
+            while (read < size)
+            {
+                int n = sock.Receive(buffer, read, size - read, SocketFlags.None);
+                if(n == 0) 
+                {
+                    Log("Server je zatvorio konekciju.");
+                    Dispatcher.Invoke(() => Disconnect());
+                    break;
+                }
+                read += n;
+            }
+            return buffer;
+        }
         private void ObradiPaket(Packet packet) 
         {
+            Log(" ");
             switch (packet.Vrsta) 
             {
+                case PacketType.TURN:
+                    myTurn = true; 
+                    discarded = false;
+                    Log("Tvoj potez!!!");
+                    break;
                 case PacketType.HAND:
                     karte = new Hand(CardSpace.Width, CardSpace.Height);
                     this.karte.Cards = (List<Card>)packet.Sadrzaj;
                     break;
                 case PacketType.INILINES:
-                    this.trake = (List<Line>)packet.Sadrzaj;
+                    this.trake.Add((Line)packet.Sadrzaj);
                     mapa = new Map(Screen.Width, Screen.Height, trake);
+                    break;
+                case PacketType.CARDREQUEST:
+                    if(Hand.HandSize - karte.Cards.Count != 0) Posalji(_sockTCP,new Packet(PacketType.CARDREQUEST, Hand.HandSize - karte.Cards.Count));
+                    break;
+                case PacketType.CARD:
+                    karte.Cards.Add((Card)packet.Sadrzaj);
+                    break;
+                case PacketType.NOCARD:
+                    Log("Nema vise karata");
                     break;
             }
 
@@ -279,6 +311,8 @@ namespace Castle_Defense_Client
         }
         private void Posalji(Socket s, Packet paket) 
         {
+            if (!myTurn) return;
+
             byte[] buffer = new byte[1024];
 
             try
@@ -290,11 +324,33 @@ namespace Castle_Defense_Client
                     buffer = ms.ToArray();
                 }
 
-                _sockTCP.Send(buffer);
+                byte[] lengthPrefix = BitConverter.GetBytes(buffer.Length);
+                SendFull(_sockTCP, buffer);
+                //_sockTCP.Send(buffer);
+
+                if (paket.Vrsta == PacketType.PASS || paket.Vrsta == PacketType.PLAYCARD) myTurn = false;
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
+            }
+        }
+        void SendFull(Socket socket, byte[] data)
+        {
+            int totalSent = 0;
+            while (totalSent < data.Length)
+            {
+                try
+                {
+                    int sent = socket.Send(data, totalSent, data.Length - totalSent, SocketFlags.None);
+                    if (sent == 0)
+                        throw new SocketException();
+                    totalSent += sent;
+                }
+                catch (SocketException ex) when (ex.SocketErrorCode == SocketError.WouldBlock)
+                {
+                    Thread.Sleep(1);
+                }
             }
         }
         private void Disconnect()
@@ -324,6 +380,8 @@ namespace Castle_Defense_Client
         }
         private void discard_btn_Click(object sender, RoutedEventArgs e)
         {
+            Log("/");
+            if (!myTurn) return;
             // logika za discard, serveru samo treba da se posalje karta umesto da je ovde dodajemo
             int cardIndx = int.Parse(choosenCard.Text);
             if (cardIndx < 1 || cardIndx > karte.Cards.Count) return;
@@ -342,18 +400,17 @@ namespace Castle_Defense_Client
         }
 
         private void pass_btn_Click(object sender, RoutedEventArgs e)
-        {   //logika za teoretski kraj poteza, mozes izignorisati treba da se zameni sa serverom
-            //server treba da da enemy i karte, ostalo ostaje
-
-            discarded = false; // ovo treba da resetuje kada mu server da naznaku da nam je ponovo krenuo potez
-            BoardAdvance();
-            EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
-            for (int i = 5 - (5 - karte.Cards.Count); i < 5; i++) karte.Cards.Add(Deck.GetRadnomCard());
+        {
+            Log("/");
+            if (!myTurn) return;
+            Posalji(_sockTCP, new Packet(PacketType.PASS,new Strelac(LineColor.LJUBICASTA)));
             Dispatcher.Invoke(() => { Render(); });
         }
 
         private void play_btn_Click(object sender, RoutedEventArgs e)
         {
+            Log("/");
+            if (!myTurn) return;
             //logika za igranje karata, treba dodati deo koji ce serveru poslati koja je karta odigrana
             int cardIndx = int.Parse(choosenCard.Text);
             if (cardIndx < 1 || cardIndx > karte.Cards.Count) return;
@@ -367,18 +424,11 @@ namespace Castle_Defense_Client
             Card odigrana = karte.Cards[cardIndx].Play(karte.Cards, trake[unetaTrakaIndx], unetaZoneIndx, unetEnemyIndx);
 
             if (odigrana!=null) 
-            {
-                //karta uspesno odigrana, smestena u odigrana, pa se serveru moze proslediti ili ona ili index odigrane ili sta se vec odluci
-                //treba deo za server ovde
-                //znamo da je play uvek poslednji u potezu pa posle ovoga treba da cekamo da server da naznaku da mozemo da igramo opet
-
-
-                //logika za teoretski kraj poteza, mozes izignorisati treba da se zameni sa serverom
-                //server treba da da enemy i karte, ostalo ostaje
-                discarded = false; // ovo treba da resetuje kada mu server da naznaku da nam je ponovo krenuo potez
+            {/*
                 BoardAdvance(); 
                 EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
-                for (int i = 5 - (5 - karte.Cards.Count); i < 5; i++) karte.Cards.Add(Deck.GetRadnomCard());
+                for (int i = 5 - (5 - karte.Cards.Count); i < 5; i++) karte.Cards.Add(Deck.GetRadnomCard());*/
+                Posalji(_sockTCP, new Packet(PacketType.PLAYCARD,odigrana));
                 Dispatcher.Invoke(() => { Render(); });
             }
 
@@ -401,9 +451,7 @@ namespace Castle_Defense_Client
 
         private void DisconnectBtn_Click(object sender, RoutedEventArgs e)
         {
-            //logika za disconnect potrebna
-
-            //da se vrati na pocetni screen
+            Disconnect();
             SwitchScreens();
         }
     }
