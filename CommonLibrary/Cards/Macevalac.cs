@@ -10,7 +10,7 @@ namespace CommonLibrary.Cards
     [Serializable]
     public class Macevalac : Card
     {
-        int dmg = 1;
+        int dmg = 2;
 
         public Macevalac(LineColor c) : base("Macevalac", "udara 1 protivnika\n u macevalac zoni", c)
         {

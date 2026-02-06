@@ -13,6 +13,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace Castle_Defense_Server
 {
@@ -27,7 +28,8 @@ namespace Castle_Defense_Server
         private static int turn = 0;
         private static Task _lTask;
         private static readonly object _lock = new object();
-        private static List<Socket> igraciSoketi = new List<Socket>(); 
+        private static List<Socket> igraciSoketi = new List<Socket>();
+        private static List<Hand> karteIgraca = new List<Hand>();
 
         static void Main(string[] args)
         {
@@ -164,21 +166,98 @@ namespace Castle_Defense_Server
             _lTask = Task.Run(() => { RecieveLoop(_cts.Token); });
 
             Console.WriteLine("Pocetak igre!!!");
+            NacrtajTablu();
+            int lastTurn = -1;
             while (GameRunning) 
             {
                 //pocetak nove runde
-                if(MyTurn) 
+                if (MyTurn)
                 {
-                    foreach (Socket s in igraciSoketi) Posalji(s,new Packet(PacketType.CARDREQUEST,-1));
-                    MyTurn = false;
-                    Console.WriteLine("Kraj runde: "+turn/igraciSoketi.Count);
-                    Posalji(igraciSoketi[0], new Packet(PacketType.TURN, -1));
-                }
+                    foreach (Socket s in igraciSoketi)
+                    {
+                        int missingCards = (Hand.HandSize - karteIgraca[igraciSoketi.IndexOf(s)].Cards.Count);
+                        Console.WriteLine("Saljem " + missingCards + " karata");
+                        for (int i = 0; i < missingCards; i++)
+                        {
+                            Card nabavljena = Deck.GetRadnomCard();
+                            if (nabavljena == null)
+                            {
+                                Posalji(s, new Packet(PacketType.NOCARD, -1));
+                            }
+                            else
+                            {
+                                karteIgraca[igraciSoketi.IndexOf(s)].Cards.Add(nabavljena);
+                                Posalji(s, new Packet(PacketType.CARD, nabavljena));
+                            }
+                        }
+                        for (int j = 0; j < 2; j++)
+                        {
+                            Enemy e = EnemyDeck.GetRadnomEnemy();
+                            if (e == null)
+                            {
+                                break;
+                            }
 
+                            e.playIndx = EnemyDeck.random.Next(0, trake.Count);
+                            Posalji(s, new Packet(PacketType.PLAYENEMY, e));
+                            e.Play(trake, e.playIndx);
+                        }
+                    }
+
+                    BoardAdvance();
+                    foreach (Line l in trake)
+                    {
+                        if (l.BrojZidina < 0)
+                        {
+                            GameRunning = false;
+                            foreach (Socket s in igraciSoketi) Posalji(s, new Packet(PacketType.DEFEAT, -1));
+                        }
+                    }
+                    if (ProveriPobedu())
+                    {
+                        foreach (Socket s in igraciSoketi)
+                        {
+                            Posalji(s, new Packet(PacketType.VICTORY, -1));
+                            GameRunning = false;
+                            _cts.Cancel();
+                        }
+                    }
+                    if (GameRunning)foreach (Socket s in igraciSoketi)Posalji(s, new Packet(PacketType.NEWTURN, -1));
+                        
+                    MyTurn = false;
+                    Console.WriteLine("Kraj runde: " + turn / igraciSoketi.Count);
+                    Posalji(igraciSoketi[0], new Packet(PacketType.TURN, -1));
+                    NacrtajTablu();
+                }
+                if(turn!= lastTurn)
+                {
+                    Posalji(igraciSoketi[turn % brojIgraca], new Packet(PacketType.TURN, -1));
+                    lastTurn = turn;
+                }
             }
 
+            for (int i=0; i<igraciSoketi.Count; i++) 
+            {
+                RemoveClient(igraciSoketi[i], "kraj igre");
+                i--;
+            }
             #endregion
             Console.ReadKey();
+        }
+
+        private static bool ProveriPobedu() 
+        {
+            foreach (Line l in trake) 
+            {
+                if(l.SumaZona.Count!=0 || l.StrelacZona.Count != 0 || l.VitezZona.Count != 0 || l.MacevalacZona.Count != 0) return false;
+            }
+
+            foreach(EnemyPair ep in EnemyDeck.deck) 
+            {
+                if(ep.Num>0) return false;
+            }
+
+            return true;
         }
 
         public static string GetLocalIPAddress() // Pomocna metoda za dobavljanje IP adrese servera
@@ -201,6 +280,7 @@ namespace Castle_Defense_Server
             }
             
         }
+      
         static void SendFull(Socket socket, byte[] data)
         {
             int totalSent = 0;
@@ -219,6 +299,7 @@ namespace Castle_Defense_Server
                 }
             }
         }
+      
         public static void RecieveLoop(CancellationToken token)
         {
             #region old
@@ -310,6 +391,7 @@ namespace Castle_Defense_Server
 
         private static void ReceiveFromClient(Socket client)
         {
+            Console.WriteLine("obradjujem");
             byte[] buf = new byte[4096];
 
             try
@@ -373,6 +455,7 @@ namespace Castle_Defense_Server
                 case PacketType.DISCARD:
                     Card vracena = (Card)paket.Sadrzaj;
                     Deck.ReturnCard(vracena);
+                    karteIgraca[igraciSoketi.IndexOf(s)].Cards.Remove((Card)paket.Sadrzaj);
                     Console.WriteLine("Vracena karta: "+vracena.Name+" - "+vracena.CColor);
                     break;
                 case PacketType.PLAYCARD:
@@ -380,6 +463,7 @@ namespace Castle_Defense_Server
                     {
                         if(igrac!=s)Posalji(igrac, new Packet(PacketType.PLAYCARD,(Card)paket.Sadrzaj));
                     }
+                    karteIgraca[igraciSoketi.IndexOf(s)].Cards.Remove((Card)paket.Sadrzaj);
                     Console.WriteLine("igrac "+s.RemoteEndPoint+" je odigrao: "+((Card)paket.Sadrzaj).Name +" - "+((Card)paket.Sadrzaj).CColor);
                     turn++;
                     if (turn % igraciSoketi.Count == 0) MyTurn = true;
@@ -390,7 +474,7 @@ namespace Castle_Defense_Server
                     if (turn % igraciSoketi.Count == 0) MyTurn = true;
                     break;
                 case PacketType.CARDREQUEST:
-                    for(int i = 0; i<(int)paket.Sadrzaj; i++) 
+                    for (int i = 0; i<(int)paket.Sadrzaj; i++) 
                     {
                         Card nabavljena = Deck.GetRadnomCard();
                         if (nabavljena == null)
@@ -412,8 +496,8 @@ namespace Castle_Defense_Server
             for (int i = 1; i <= brojIgraca; i++) 
             {
                 int br = i * 2;
-                trake.Add(new Line(br - 1, (LineColor)i));
-                trake.Add(new Line(br, (LineColor)i));
+                trake.Add(new Line(br - 1, (LineColor)(i-1)));
+                trake.Add(new Line(br, (LineColor)(i-1)));
             }
             Console.WriteLine("Gotovo "+trake.Count+" traka");
             #endregion
@@ -488,6 +572,9 @@ namespace Castle_Defense_Server
                 {
                     karte.Add(Deck.GetRadnomCard());
                 }
+                Hand h = new Hand();
+                h.Cards = karte;
+                karteIgraca.Add(h);
                 Posalji(klijenti[i], new Packet(PacketType.HAND, karte));
             }
             Console.WriteLine("Gotove karte");
@@ -502,6 +589,81 @@ namespace Castle_Defense_Server
             }
 
             Posalji(klijenti[0], new Packet(PacketType.TURN, -1));
+        }
+
+        private static void NacrtajTablu()
+        {
+            string output = "";
+            int enemyPerLine = 4;
+            for (int i = 0; i < enemyPerLine; i++)
+            {
+                foreach (Line l in trake)
+                {
+                    output += "| ";
+                    if (i < l.SumaZona.Count)
+                    {
+                        output += string.Format(" {0,-2}{1,-6} ", l.SumaZona[i].HP, l.SumaZona[i].Name);
+                    }
+                    else output += string.Format("{0,-10}", " ");
+                    output += "|   ";
+                }
+                output += "\n";
+            }
+            output += "\n";
+            for (int i = 0; i < enemyPerLine; i++)
+            {
+                foreach (Line l in trake)
+                {
+                    output += "| ";
+                    if (i < l.StrelacZona.Count)
+                    {
+                        output += string.Format(" {0,-2}{1,-6} ", l.StrelacZona[i].HP, l.StrelacZona[i].Name);
+                    }
+                    else output += string.Format("{0,-10}", " ");
+                    output += "|   ";
+                }
+                output += "\n";
+            }
+            output += "\n";
+            for (int i = 0; i < enemyPerLine; i++)
+            {
+                foreach (Line l in trake)
+                {
+                    output += "| ";
+                    if (i < l.VitezZona.Count)
+                    {
+                        output += string.Format(" {0,-2}{1,-6} ", l.VitezZona[i].HP, l.VitezZona[i].Name);
+                    }
+                    else output += string.Format("{0,-10}", " ");
+                    output += "|   ";
+                }
+                output += "\n";
+            }
+            output += "\n";
+            for (int i = 0; i < enemyPerLine; i++)
+            {
+                foreach (Line l in trake)
+                {
+                    output += "| ";
+                    if (i < l.MacevalacZona.Count)
+                    {
+                        output += string.Format(" {0,-2}{1,-6} ", l.MacevalacZona[i].HP, l.MacevalacZona[i].Name);
+                    }
+                    else output += string.Format("{0,-10}", " ");
+                    output += "|   ";
+                }
+                output += "\n";
+            }
+            output += "\n";
+            foreach (Line l in trake)
+            {
+                output += string.Format("{1,-6}{0,-2}{1,-6}",l.BrojZidina ," ");
+            }
+            Console.WriteLine(output);
+        }
+        private static void BoardAdvance()
+        {
+            foreach (Line l in trake) l.Advance();
         }
 
         public static void Posalji(Socket sock, Packet paket)
@@ -520,6 +682,8 @@ namespace Castle_Defense_Server
                 }
 
                 byte[] lengthPrefix = BitConverter.GetBytes(paketBuffer.Length);
+
+                Thread.Sleep(100);
 
                 SendFull(sock, lengthPrefix);
                 sock.Send(paketBuffer);

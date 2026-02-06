@@ -275,6 +275,13 @@ namespace Castle_Defense_Client
             Log(" ");
             switch (packet.Vrsta) 
             {
+                case PacketType.PLAYENEMY:
+                    Enemy newEnemy = (Enemy)packet.Sadrzaj;
+                    newEnemy.Play(trake,newEnemy.playIndx);
+                    break;
+                case PacketType.NEWTURN:
+                    BoardAdvance();
+                    break;
                 case PacketType.TURN:
                     myTurn = true; 
                     discarded = false;
@@ -289,13 +296,22 @@ namespace Castle_Defense_Client
                     mapa = new Map(Screen.Width, Screen.Height, trake);
                     break;
                 case PacketType.CARDREQUEST:
-                    if(Hand.HandSize - karte.Cards.Count != 0) Posalji(_sockTCP,new Packet(PacketType.CARDREQUEST, Hand.HandSize - karte.Cards.Count));
+                    Posalji(_sockTCP, new Packet(PacketType.CARDREQUEST, Hand.HandSize - karte.Cards.Count));
+                    
                     break;
                 case PacketType.CARD:
                     karte.Cards.Add((Card)packet.Sadrzaj);
                     break;
                 case PacketType.NOCARD:
                     Log("Nema vise karata");
+                    break;
+                case PacketType.DEFEAT:
+                    BoardAdvance();
+                    MessageBox.Show("Poraz :(");
+                    break;
+                case PacketType.VICTORY:
+                    BoardAdvance();
+                    MessageBox.Show("Pobeda :)");
                     break;
             }
 
@@ -309,6 +325,7 @@ namespace Castle_Defense_Client
                 gameLog.Text = line;
             });
         }
+        
         private void Posalji(Socket s, Packet paket) 
         {
             if (!myTurn) return;
@@ -325,8 +342,8 @@ namespace Castle_Defense_Client
                 }
 
                 byte[] lengthPrefix = BitConverter.GetBytes(buffer.Length);
-                SendFull(_sockTCP, buffer);
-                //_sockTCP.Send(buffer);
+                
+                _sockTCP.Send(buffer);
 
                 if (paket.Vrsta == PacketType.PASS || paket.Vrsta == PacketType.PLAYCARD) myTurn = false;
             }
@@ -335,24 +352,7 @@ namespace Castle_Defense_Client
                 Console.WriteLine(ex.Message);
             }
         }
-        void SendFull(Socket socket, byte[] data)
-        {
-            int totalSent = 0;
-            while (totalSent < data.Length)
-            {
-                try
-                {
-                    int sent = socket.Send(data, totalSent, data.Length - totalSent, SocketFlags.None);
-                    if (sent == 0)
-                        throw new SocketException();
-                    totalSent += sent;
-                }
-                catch (SocketException ex) when (ex.SocketErrorCode == SocketError.WouldBlock)
-                {
-                    Thread.Sleep(1);
-                }
-            }
-        }
+
         private void Disconnect()
         {
             try
@@ -378,6 +378,7 @@ namespace Castle_Defense_Client
                 Log("Disconnect error: " + ex.Message);
             }
         }
+        
         private void discard_btn_Click(object sender, RoutedEventArgs e)
         {
             Log("/");
@@ -409,14 +410,14 @@ namespace Castle_Defense_Client
 
         private void play_btn_Click(object sender, RoutedEventArgs e)
         {
-            Log("/");
+            Log("");
             if (!myTurn) return;
             //logika za igranje karata, treba dodati deo koji ce serveru poslati koja je karta odigrana
             int cardIndx = int.Parse(choosenCard.Text);
             if (cardIndx < 1 || cardIndx > karte.Cards.Count) return;
             cardIndx--;
             int unetaTrakaIndx = int.Parse(unetaTraka.Text);
-            if (unetaTrakaIndx < 1 || unetaTrakaIndx > (trake.Count-  1) || karte.Cards.Count==0) return;
+            if (unetaTrakaIndx < 1 || unetaTrakaIndx > trake.Count || karte.Cards.Count==0) return;
             unetaTrakaIndx--;
             int unetaZoneIndx = int.Parse(unetaStaza.Text);
             int unetEnemyIndx = int.Parse(unetNeprijatelj.Text);
@@ -424,10 +425,7 @@ namespace Castle_Defense_Client
             Card odigrana = karte.Cards[cardIndx].Play(karte.Cards, trake[unetaTrakaIndx], unetaZoneIndx, unetEnemyIndx);
 
             if (odigrana!=null) 
-            {/*
-                BoardAdvance(); 
-                EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
-                for (int i = 5 - (5 - karte.Cards.Count); i < 5; i++) karte.Cards.Add(Deck.GetRadnomCard());*/
+            {
                 Posalji(_sockTCP, new Packet(PacketType.PLAYCARD,odigrana));
                 Dispatcher.Invoke(() => { Render(); });
             }

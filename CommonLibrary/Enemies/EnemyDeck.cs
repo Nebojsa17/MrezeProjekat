@@ -17,7 +17,7 @@ namespace CommonLibrary.Enemies
         public static void InitializeDeck(int plNum)
         {
             deck.Clear();
-            deck.Add(new EnemyPair(new Goblin(), SlashInstance(plNum, 120)));
+            deck.Add(new EnemyPair(new Goblin(), SlashInstance(plNum, 12)));
             deck.Add(new EnemyPair(new Ork(), SlashInstance(plNum, 11)));
             deck.Add(new EnemyPair(new Trol(), SlashInstance(plNum, 8)));
             deck.Add(new EnemyPair(new EnemyAdvance(LineColor.LJUBICASTA), SlashInstance(plNum, 1)));
@@ -48,7 +48,6 @@ namespace CommonLibrary.Enemies
             izabrana = deck[indx].Enemy.Copy();
             deck[indx].Num--;
 
-            MessageBox.Show("Odigran: "+izabrana.Name);
             return izabrana;
         }
     }

@@ -10,7 +10,7 @@ namespace CommonLibrary.Cards
     [Serializable]
     public class Heroj : Card
     {
-        int dmg = 1;
+        int dmg = 2;
 
         public Heroj(LineColor c) : base("Heroj", "udara 1 protivnika", c)
         {
