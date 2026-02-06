@@ -116,7 +116,7 @@ namespace Castle_Defense_Client
 
         private void BoardAdvance() 
         {
-            foreach (CommonLibrary.Miscellaneous.Line l in trake) l.Advance();
+            foreach (Line l in trake) l.Advance();
         }
 
         private void SwitchScreens() 

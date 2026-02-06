@@ -21,12 +21,17 @@ namespace Castle_Defense_Server
         public const int SERVER_PORT = 51000;
         public static List<Line> trake = new List<Line>();
         public static Random localRandom = new Random();
+        private static CancellationTokenSource _cts;
+        private static bool GameRunning = true;
+        private static int turn = 0;
+        private static Task _lTask;
+        private static List<Socket> igraciSoketi = new List<Socket>(); 
 
         static void Main(string[] args)
         {
             Console.WriteLine($"Server pocinje sa radom na adresi: {GetLocalIPAddress()}");
 
-            // Unos validnog broja igraca
+            #region Unos validnog broja igraca
 
             int brojIgraca = 1;
 
@@ -44,6 +49,7 @@ namespace Castle_Defense_Server
                 }
 
             } while (brojIgraca < 1 || brojIgraca > 3);
+            #endregion
 
             #region POCETNA UDP POVEZIVANJA
             // Otvaranje UDP uticnice za prijavu igraca
@@ -57,7 +63,6 @@ namespace Castle_Defense_Server
             // Provera prijava i slanje informacija igracima o njihovoj TCP uticnici
 
             List<EndPoint> igraci = new List<EndPoint>(); // Lista igraca
-            List<Socket> igraciSoketi = new List<Socket>(); // Lista soketa igraca
             byte[] buffer = new byte[1024];
 
             while (igraci.Count < brojIgraca)
@@ -143,38 +148,26 @@ namespace Castle_Defense_Server
                 {
                     Console.WriteLine("Accept error: " + ex.Message);
                 }
-                #endregion
             }
+            #endregion
+
+            #region GAME LOGIKA I KOMUNIKACIJA
             GenerateGame(brojIgraca, igraciSoketi);
 
-            // Vracanje karata serveru
-            /*
-            while (true) // dodati uslov za izlazak iz ovoga
+            _cts = new CancellationTokenSource();
+
+            GameRunning = true;
+            turn = 0;
+
+            _lTask = Task.Run(() => { RecieveLoop(_cts.Token); });
+
+            while (GameRunning) 
             {
-                List<Socket> soketi = new List<Socket>(igraciSoketi);
 
-                Socket.Select(soketi, null, null, 1_000_000);
 
-                foreach (Socket s in soketi)
-                {
-                    byte[] recvBuffer = new byte[1024];
-                    int recvBytes = s.Receive(recvBuffer);
+            }
 
-                    Card vracenaKarta;
-
-                    using (MemoryStream ms = new MemoryStream(recvBuffer))
-                    {
-                        BinaryFormatter bf = new BinaryFormatter();
-                        vracenaKarta = (Card)bf.Deserialize(ms);
-                    }
-
-                    Deck.ReturnCard(vracenaKarta); // ako se salje karta
-
-                    string poruka = Encoding.UTF8.GetString(recvBuffer); // ako se salje obicna poruka
-                }
-        
-            }*/
-
+            #endregion
             Console.ReadKey();
         }
 
@@ -197,6 +190,54 @@ namespace Castle_Defense_Server
                 return string.Empty;
             }
             
+        }
+
+        public static void RecieveLoop(CancellationToken token)
+        {
+            List<Socket> listener = new List<Socket>();
+
+            while (!token.IsCancellationRequested) 
+            {
+                foreach (Socket s in igraciSoketi) listener.Add(s);
+
+                Socket.Select(listener, null, null, 10000);
+
+                foreach (Socket s in listener)
+                {
+                    byte[] recvBuffer = new byte[4096 * 2];
+                    int recvBytes = s.Receive(recvBuffer);
+
+                    Packet primljenPaket;
+
+                    using (MemoryStream ms = new MemoryStream(recvBuffer))
+                    {
+                        BinaryFormatter bf = new BinaryFormatter();
+                        primljenPaket = (Packet)bf.Deserialize(ms);
+                        ObradiPaket(primljenPaket);
+                    }
+                }
+
+            }
+        }
+
+        public static void ObradiPaket(Packet paket) 
+        {
+            switch (paket.Vrsta) 
+            {
+                case PacketType.DISCARD:
+                    Card vracena = (Card)paket.Sadrzaj;
+                    Deck.ReturnCard(vracena);
+                    Console.WriteLine("Vracena karta: "+vracena.Name+" - "+vracena.CColor);
+                    break;
+                case PacketType.PLAYCARD:
+
+                    turn++;
+                    break;
+                case PacketType.PASS:
+
+                    turn++;
+                    break;
+            }
         }
 
         public static void GenerateGame(int brojIgraca, List<Socket> klijenti)
