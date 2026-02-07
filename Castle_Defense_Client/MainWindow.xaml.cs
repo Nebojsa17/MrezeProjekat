@@ -278,6 +278,7 @@ namespace Castle_Defense_Client
                 case PacketType.PLAYENEMY:
                     Enemy newEnemy = (Enemy)packet.Sadrzaj;
                     newEnemy.Play(trake,newEnemy.playIndx);
+                    MessageBox.Show("Odigran: "+newEnemy.Name);
                     break;
                 case PacketType.NEWTURN:
                     BoardAdvance();
@@ -312,6 +313,16 @@ namespace Castle_Defense_Client
                 case PacketType.VICTORY:
                     BoardAdvance();
                     MessageBox.Show("Pobeda :)");
+                    break;
+                case PacketType.PLAYERS:
+                    List<string> ostali = (List<string>)packet.Sadrzaj;
+                    string mi = _sockTCP.LocalEndPoint.ToString();
+                    playerList.Content = "MI-"+mi+"\n";
+                    ostali.Remove(mi);
+                    foreach ( string str in ostali) 
+                    {
+                        playerList.Content += str + "\n";
+                    }
                     break;
             }
 

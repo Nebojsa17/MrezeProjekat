@@ -18,8 +18,7 @@ namespace CommonLibrary.Enemies
         {
             BitmapImage image = new BitmapImage(new Uri("Enemies/Sprites/GoblinSprite.png", UriKind.Relative));
             dc.DrawImage(image, new Rect(origin.X - 15, origin.Y - 15, 30, 30));
-             
-            //base.Draw(dc, origin);
+           
         }
 
         public override Enemy Copy()

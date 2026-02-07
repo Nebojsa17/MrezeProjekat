@@ -161,7 +161,7 @@ namespace Castle_Defense_Server
             _cts = new CancellationTokenSource();
 
             GameRunning = true;
-            turn = 0;
+            turn = 1;
 
             _lTask = Task.Run(() => { RecieveLoop(_cts.Token); });
 
@@ -190,21 +190,21 @@ namespace Castle_Defense_Server
                                 Posalji(s, new Packet(PacketType.CARD, nabavljena));
                             }
                         }
-                        for (int j = 0; j < 2; j++)
-                        {
-                            Enemy e = EnemyDeck.GetRadnomEnemy();
-                            if (e == null)
-                            {
-                                break;
-                            }
-
-                            e.playIndx = EnemyDeck.random.Next(0, trake.Count);
-                            Posalji(s, new Packet(PacketType.PLAYENEMY, e));
-                            e.Play(trake, e.playIndx);
-                        }
                     }
 
-                    BoardAdvance();
+                    for (int j = 0; j < 2; j++)
+                    {
+                        Enemy e = EnemyDeck.GetRadnomEnemy();
+                        if (e == null)
+                        {
+                            break;
+                        }
+                        e.playIndx = EnemyDeck.random.Next(0, trake.Count);
+                        Console.WriteLine("Postavljam neprijatelja: " + e.Name+" na "+ (e.playIndx+1)+". traku");
+                        foreach (Socket s in igraciSoketi) Posalji(s, new Packet(PacketType.PLAYENEMY, e));
+                        e.Play(trake, e.playIndx);
+                    }
+
                     foreach (Line l in trake)
                     {
                         if (l.BrojZidina < 0)
@@ -227,6 +227,7 @@ namespace Castle_Defense_Server
                     MyTurn = false;
                     Console.WriteLine("Kraj runde: " + turn / igraciSoketi.Count);
                     Posalji(igraciSoketi[0], new Packet(PacketType.TURN, -1));
+                    BoardAdvance();
                     NacrtajTablu();
                 }
                 if(turn!= lastTurn)
@@ -439,6 +440,8 @@ namespace Castle_Defense_Server
             }
 
             SafeClose(client);
+            GameRunning = false;
+            _cts.Cancel();
         }
 
         private static void SafeClose(Socket s)
@@ -588,6 +591,12 @@ namespace Castle_Defense_Server
                 }
             }
 
+            List<string> igraciIP = new List<string>();
+            foreach (Socket s in igraciSoketi)
+            {
+                igraciIP.Add(s.RemoteEndPoint.ToString());
+            }
+            foreach (Socket s in igraciSoketi) Posalji(s, new Packet(PacketType.PLAYERS, igraciIP));
             Posalji(klijenti[0], new Packet(PacketType.TURN, -1));
         }
 

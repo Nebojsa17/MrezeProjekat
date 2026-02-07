@@ -60,6 +60,7 @@
     <Compile Include="Enemies\EnemyDeck.cs" />
     <Compile Include="Enemies\Goblin.cs" />
     <Compile Include="Enemies\Ork.cs" />
+    <Compile Include="Enemies\Rock.cs" />
     <Compile Include="Enemies\Trol.cs" />
     <Compile Include="Miscellaneous\Map.cs" />
     <Compile Include="Miscellaneous\Line.cs" />
@@ -70,6 +71,9 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Enemies\Sprites\GoblinSprite.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Enemies\Sprites\OrcSprite.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

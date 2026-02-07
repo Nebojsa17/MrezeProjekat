@@ -21,13 +21,14 @@ namespace CommonLibrary.Enemies
             deck.Add(new EnemyPair(new Ork(), SlashInstance(plNum, 11)));
             deck.Add(new EnemyPair(new Trol(), SlashInstance(plNum, 8)));
             deck.Add(new EnemyPair(new EnemyAdvance(LineColor.LJUBICASTA), SlashInstance(plNum, 1)));
+            deck.Add(new EnemyPair(new Rock(), SlashInstance(plNum, 4)));
         }
 
         private static int SlashInstance(int plNum, int inst)
         {
             if (inst <= 4 && plNum == 1) return 1;
             if (inst == 1 && plNum == 2) return 2;
-            return inst/plNum;
+            return inst/(4-plNum);
         }
 
         public static Enemy GetRadnomEnemy()
