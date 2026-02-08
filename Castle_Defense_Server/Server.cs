@@ -381,7 +381,6 @@ namespace Castle_Defense_Server
 
         private static void ReceiveFromClient(Socket client)
         {
-            Console.WriteLine("obradjujem");
             byte[] buf = new byte[4096];
 
             try
@@ -592,7 +591,6 @@ namespace Castle_Defense_Server
                 igraciIP.Add(s.RemoteEndPoint.ToString());
             }
             foreach (Socket s in igraciSoketi) Posalji(s, new Packet(PacketType.PLAYERS, igraciIP));
-            Posalji(klijenti[0], new Packet(PacketType.TURN, -1));
         }
 
         private static void NacrtajTablu()
@@ -691,11 +689,12 @@ namespace Castle_Defense_Server
                     paketBuffer = ms.ToArray();
                 }
 
-                byte[] lengthPrefix = BitConverter.GetBytes(paketBuffer.Length);
+                //byte[] lengthPrefix = BitConverter.GetBytes(paketBuffer.Length);
 
-                Thread.Sleep(150);
+                //Thread.Sleep(150);
 
-                sock.Send(lengthPrefix);
+                //sock.Send(lengthPrefix);
+                Console.WriteLine("saljem: "+ paketBuffer.Length);
                 sock.Send(paketBuffer);
             }
             catch (Exception e)

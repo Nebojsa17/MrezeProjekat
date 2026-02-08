@@ -1,4 +1,5 @@
 ﻿using Castle_Defense_Client.Elements;
+using Castle_Defense_Client.Klijent;
 using CommonLibrary;
 using CommonLibrary.Cards;
 using CommonLibrary.Enemies;
@@ -37,6 +38,7 @@ namespace Castle_Defense_Client
         //private static IPAddress adresaServera = IPAddress.Parse("192.168.0.106");
         public const int SERVER_PORT = 51000;
         private Socket _sockUDP, _sockTCP;
+        private static readonly object _lock = new object();
         private bool discarded = false;
         private bool myTurn = false;
         private CancellationTokenSource _cts;
@@ -160,6 +162,7 @@ namespace Castle_Defense_Client
 
             Render();
         }
+        
         private void ConnectBtn_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -228,50 +231,72 @@ namespace Castle_Defense_Client
             }
         }
 
-        private void RecieveLoop(CancellationToken token) 
+        private void RecieveLoop(CancellationToken token)
         {
-            while (!token.IsCancellationRequested) 
+            byte[] buf = new byte[4096];
+
+            while (!token.IsCancellationRequested)
             {
-                byte[] buf = new byte[4096];
-
-                while (!token.IsCancellationRequested)
+                List<Socket> readList = new List<Socket>();
+                lock (_lock)
                 {
-                    Socket s = _sockTCP;
-                    if (s == null) break;
+                    readList.Add(_sockTCP);
+                }
 
-                    try
-                    {
-                        byte[] lenBuf = ReceiveExact(s, 4);
-                        int length = BitConverter.ToInt32(lenBuf, 0);
-                        if (length == 0) return;
-                        buf = ReceiveExact(s, length);
+                try
+                {
+                    Socket.Select(readList, null, null, 200000);
+                }
+                catch
+                {
+                    continue;
+                }
 
-                        BinaryFormatter formatter = new BinaryFormatter();
+                for (int i = 0; i < readList.Count; i++)
+                {
+                    if (token.IsCancellationRequested) break;
 
-                        using (MemoryStream ms = new MemoryStream(buf))
-                        {
-                            Packet paket = (Packet)formatter.Deserialize(ms);
-                            Dispatcher.Invoke(() => ObradiPaket(paket));
-                        }
-
-                    }
-                    catch (SocketException ex)
-                    {
-                        MessageBox.Show(ex.Message);
-                        Log("SocketException: " + ex.SocketErrorCode);
-                        Dispatcher.Invoke(() => Disconnect());
-                        break;
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show(ex.Message);
-                        Log("Receive error: " + ex.Message);
-                        Dispatcher.Invoke(() => Disconnect());
-                        break;
-                    }
+                    ReceiveFromServer(readList[i]);
                 }
             }
         }
+
+        private void ReceiveFromServer(Socket s)
+        {
+            byte[] buf = new byte[4096];
+
+            try
+            {
+                int n = s.Receive(buf);
+                if (n == 0)
+                {
+                    Disconnect();
+                    return;
+                }
+
+                BinaryFormatter formatter = new BinaryFormatter();
+
+                using (MemoryStream ms = new MemoryStream(buf))
+                {
+                    Packet paket = (Packet)formatter.Deserialize(ms);
+                    Dispatcher.Invoke(() => ObradiPaket(paket));
+                }
+
+            }
+            catch (SocketException ex)
+            {
+                MessageBox.Show(ex.Message);
+                Log("SocketException: " + ex.SocketErrorCode);
+                Dispatcher.Invoke(() => Disconnect());
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+                Log("Receive error: " + ex.Message);
+                Dispatcher.Invoke(() => Disconnect());
+            }
+        }
+
         private byte[] ReceiveExact(Socket sock, int size)
         {
             byte[] buffer = new byte[size];
@@ -289,6 +314,7 @@ namespace Castle_Defense_Client
             }
             return buffer;
         }
+        
         private void ObradiPaket(Packet packet) 
         {
             switch (packet.Vrsta) 
@@ -318,10 +344,12 @@ namespace Castle_Defense_Client
                 case PacketType.HAND:
                     karte = new Hand(CardSpace.Width, CardSpace.Height);
                     this.karte.Cards = (List<Card>)packet.Sadrzaj;
+                    Log("Primljene karte");
                     break;
                 case PacketType.INILINES:
                     this.trake.Add((Line)packet.Sadrzaj);
                     mapa = new Map(Screen.Width, Screen.Height, trake);
+                    Log("Primljena traka");
                     break;
                 case PacketType.CARDREQUEST:
                     Posalji(_sockTCP, new Packet(PacketType.CARDREQUEST, Hand.HandSize - karte.Cards.Count));
@@ -350,6 +378,7 @@ namespace Castle_Defense_Client
                     {
                         playerList.Content += str + "\n\n";
                     }
+                    Log("Primljeni igraci");
                     break;
                 case PacketType.HANDUPDATE:
                     Hand rightHand = (Hand)packet.Sadrzaj;
