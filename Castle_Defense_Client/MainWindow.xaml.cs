@@ -33,7 +33,8 @@ namespace Castle_Defense_Client
     public partial class MainWindow : Window
     {
         //For web
-        private static IPAddress adresaServera = IPAddress.Parse("192.168.0.106");
+        private static IPAddress adresaServera = IPAddress.Loopback;
+        //private static IPAddress adresaServera = IPAddress.Parse("192.168.0.106");
         public const int SERVER_PORT = 51000;
         private Socket _sockUDP, _sockTCP;
         private bool discarded = false;
