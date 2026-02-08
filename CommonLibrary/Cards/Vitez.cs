@@ -23,7 +23,12 @@ namespace CommonLibrary.Cards
             if (this.CColor != LineColor.LJUBICASTA && traka.LColor != this.CColor) return null;
 
             if (!traka.DmgEnemy(zone, enemy, dmg)) return null;
-            hand.Remove(this);
+
+            if (hand != null) hand.Remove(this);
+            played = true;
+            enemyStruck = enemy;
+            zoneTargeted = zone;
+            linePlayed = traka.Broj;
 
             return this;
         }

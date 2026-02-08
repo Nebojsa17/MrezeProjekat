@@ -17,21 +17,33 @@ namespace CommonLibrary.Cards
 
         public override Card Play(List<Card> hand, Line traka, int zone, int enemy)
         {
-            Cigla m = null;
-            foreach (Card c in hand)
+            int indx = 0;
+            if (!played)
             {
-                if (typeof(Cigla) == c.GetType())
+                foreach (Card c in hand)
                 {
-                    m = (Cigla)c;
+                    if (typeof(Cigla) == c.GetType())
+                    {
+                        break;
+                    }
+                    indx++;
                 }
+                if (indx >= hand.Count) return null;
             }
-            if (m == null) return null;
 
             traka.BrojZidina++;
             if (traka.BrojZidina > 2) traka.BrojZidina = 2;
 
-            hand.Remove(this);
-            hand.Remove(m);
+            if (hand != null)
+            {
+                hand.RemoveAt(indx);
+                hand.Remove(this);
+            }
+
+            played = true;
+            enemyStruck = enemy;
+            zoneTargeted = zone;
+            linePlayed = traka.Broj;
 
             return this;
         }

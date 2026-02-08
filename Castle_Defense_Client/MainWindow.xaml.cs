@@ -33,6 +33,7 @@ namespace Castle_Defense_Client
     public partial class MainWindow : Window
     {
         //For web
+        private static IPAddress adresaServera = IPAddress.Parse("192.168.0.106");
         public const int SERVER_PORT = 51000;
         private Socket _sockUDP, _sockTCP;
         private bool discarded = false;
@@ -76,10 +77,17 @@ namespace Castle_Defense_Client
             karte.Cards.Add(Deck.GetRadnomCard());
 
             EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
+            EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
+            EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
+            EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
+            EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
+            EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
+            EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
+            EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
             BoardAdvance();
             Dispatcher.Invoke(() => { Render(); });
-            */
-            //SwitchScreens();
+            
+            SwitchScreens();*/
             //do ovde je posao servera
 
         }
@@ -156,7 +164,7 @@ namespace Castle_Defense_Client
             try
             {
                 _sockUDP = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                IPEndPoint serverEP = new IPEndPoint(IPAddress.Loopback, SERVER_PORT);
+                IPEndPoint serverEP = new IPEndPoint(adresaServera, SERVER_PORT);
 
                 string poruka = "PRIJAVA";
                 byte[] buffer = new byte[1024];
@@ -170,6 +178,11 @@ namespace Castle_Defense_Client
             catch (SocketException er)
             {
                 Logger.Content = $"LOG: Greska prilikom slanja poruke: {er.Message}.";
+                return;
+            }
+            catch (Exception err) 
+            {
+                Logger.Content = $"LOG: Greska: {err.Message}.";
                 return;
             }
 
@@ -205,6 +218,11 @@ namespace Castle_Defense_Client
             catch (SocketException er)
             {
                 Logger.Content = $"LOG: Greska prilikom prijema poruke: {er.Message}.";
+                return;
+            }
+            catch (Exception err)
+            {
+                Logger.Content = $"LOG: Greska: {err.Message}.";
                 return;
             }
         }
@@ -272,13 +290,19 @@ namespace Castle_Defense_Client
         }
         private void ObradiPaket(Packet packet) 
         {
-            Log(" ");
             switch (packet.Vrsta) 
             {
                 case PacketType.PLAYENEMY:
                     Enemy newEnemy = (Enemy)packet.Sadrzaj;
                     newEnemy.Play(trake,newEnemy.playIndx);
-                    MessageBox.Show("Odigran: "+newEnemy.Name);
+                    Log("Odigran: "+newEnemy.Name);
+                    break;
+                case PacketType.PLAYCARD:
+                    Card c = (Card)packet.Sadrzaj;
+                    if (c.Played())
+                    {
+                        c.Play(null, trake);
+                    }
                     break;
                 case PacketType.NEWTURN:
                     BoardAdvance();
@@ -298,10 +322,10 @@ namespace Castle_Defense_Client
                     break;
                 case PacketType.CARDREQUEST:
                     Posalji(_sockTCP, new Packet(PacketType.CARDREQUEST, Hand.HandSize - karte.Cards.Count));
-                    
                     break;
                 case PacketType.CARD:
                     karte.Cards.Add((Card)packet.Sadrzaj);
+                    Log("Dodata karta: " + ((Card)packet.Sadrzaj).Name);
                     break;
                 case PacketType.NOCARD:
                     Log("Nema vise karata");
@@ -317,12 +341,22 @@ namespace Castle_Defense_Client
                 case PacketType.PLAYERS:
                     List<string> ostali = (List<string>)packet.Sadrzaj;
                     string mi = _sockTCP.LocalEndPoint.ToString();
-                    playerList.Content = "MI-"+mi+"\n";
+                    playerList.Content = "PL-"+mi+"\n\n";
                     ostali.Remove(mi);
                     foreach ( string str in ostali) 
                     {
-                        playerList.Content += str + "\n";
+                        playerList.Content += str + "\n\n";
                     }
+                    break;
+                case PacketType.HANDUPDATE:
+                    Hand rightHand = (Hand)packet.Sadrzaj;
+
+                    if (rightHand.Cards.Count != karte.Cards.Count) 
+                    {
+                        Log("Korektovanje ruke!!!");
+                        karte.Cards = rightHand.Cards;
+                    }
+
                     break;
             }
 
@@ -333,7 +367,8 @@ namespace Castle_Defense_Client
         {
             Dispatcher.Invoke(() =>
             {
-                gameLog.Text = line;
+                gameLog.Text += "\n"+line;
+                gameLog.ScrollToEnd();
             });
         }
         
@@ -392,7 +427,6 @@ namespace Castle_Defense_Client
         
         private void discard_btn_Click(object sender, RoutedEventArgs e)
         {
-            Log("/");
             if (!myTurn) return;
             // logika za discard, serveru samo treba da se posalje karta umesto da je ovde dodajemo
             int cardIndx = int.Parse(choosenCard.Text);
@@ -407,21 +441,20 @@ namespace Castle_Defense_Client
 
             Posalji(_sockTCP ,new Packet(PacketType.DISCARD, karte.Cards[cardIndx]));
             karte.Cards.RemoveAt(cardIndx);
-
+            Log("Odbacena :(");
             Dispatcher.Invoke(() => { Render(); });
         }
 
         private void pass_btn_Click(object sender, RoutedEventArgs e)
         {
-            Log("/");
             if (!myTurn) return;
             Posalji(_sockTCP, new Packet(PacketType.PASS,new Strelac(LineColor.LJUBICASTA)));
+            Log("Preskocio");
             Dispatcher.Invoke(() => { Render(); });
         }
 
         private void play_btn_Click(object sender, RoutedEventArgs e)
         {
-            Log("");
             if (!myTurn) return;
             //logika za igranje karata, treba dodati deo koji ce serveru poslati koja je karta odigrana
             int cardIndx = int.Parse(choosenCard.Text);

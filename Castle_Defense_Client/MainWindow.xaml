@@ -5,8 +5,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Castle_Defense_Client.Elements"
         mc:Ignorable="d"
-        Title="Castle Defender" Height="800" Width="1200" HorizontalAlignment="Center" VerticalAlignment="Center" WindowStartupLocation="CenterScreen">
- 
+        Title="Castle Defender" Height="800" Width="1500" HorizontalAlignment="Center" VerticalAlignment="Center" WindowStartupLocation="CenterScreen">
+
     <TabControl Background="Black" SelectionChanged="TabControl_SelectionChanged">
         <TabControl.Resources>
             <Style TargetType="TabItem">
@@ -62,32 +62,32 @@
         <TabItem x:Name="Game">
             <Grid Background="Gray">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="2*"/>
+                    <RowDefinition Height="2.5*"/>
                     <RowDefinition/>
                 </Grid.RowDefinitions>
 
-                <DockPanel Background="WhiteSmoke" Grid.Row="0" Width="1100" Height="500">
-                    <local:DrawingPanel x:Name="Screen" MouseDown="Screen_MouseDown" Width="1100" Height="500" ClipToBounds="True"></local:DrawingPanel>
+                <DockPanel Background="WhiteSmoke" Grid.Row="0" Width="1350" Height="530">
+                    <local:DrawingPanel x:Name="Screen" MouseDown="Screen_MouseDown" Width="1350" Height="530" ClipToBounds="True"></local:DrawingPanel>
                 </DockPanel>
 
                 <Grid Grid.Row="1" Margin="5">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="2*"/>
+                        <ColumnDefinition Width="1*"/>
                         <ColumnDefinition/>
                     </Grid.ColumnDefinitions>
 
                     <Grid Grid.Column="0">
                         <Grid.RowDefinitions>
-                            <RowDefinition/>
+                            <RowDefinition Height="1.15*"/>
                             <RowDefinition/>
                         </Grid.RowDefinitions>
 
                         <DockPanel Grid.Row="0" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="70,0,0,0">
-                            <DockPanel Background="LightGray" Height="120" VerticalAlignment="Top">
-                                <local:DrawingPanel x:Name="CardSpace" Width="600" Height="120" MouseDown="choosenCard_MouseDown" ClipToBounds="True"></local:DrawingPanel>
+                            <DockPanel Background="LightGray" Height="110" VerticalAlignment="Top">
+                                <local:DrawingPanel x:Name="CardSpace" Width="600" Height="110" MouseDown="choosenCard_MouseDown" ClipToBounds="True"></local:DrawingPanel>
                             </DockPanel>
                             <!--IZBOR CARATA-->
-                            <TextBox x:Name="choosenCard" BorderThickness="5" Margin="5,0,0,0" PreviewTextInput="NumberBox_PreviewTextInput" Width="40" Height="70" FontSize="44" BorderBrush="Black">0</TextBox>
+                            <TextBox x:Name="choosenCard" BorderThickness="5" Margin="0,0,0,0" PreviewTextInput="NumberBox_PreviewTextInput" Width="40" Height="70" FontSize="44" BorderBrush="Black">0</TextBox>
                         </DockPanel>
                         <Grid Grid.Row="1" Margin="70,0,0,0">
                             <Grid.ColumnDefinitions>
@@ -101,10 +101,10 @@
                             </Grid.RowDefinitions>
 
                             <!-- BUTTONS -->
-                            <Button Grid.Row="0" Grid.Column="0" x:Name="discard_btn" Margin="0,10,10,13" FontSize="20" Click="discard_btn_Click">DISCARD</Button>
-                            <Button Grid.Row="1" Grid.Column="0" x:Name="pass_btn" Margin="0,10,10,13" FontSize="20" Click="pass_btn_Click">PASS</Button>
-                            <Button Grid.Row="0" Grid.Column="1" x:Name="play_btn" Margin="0,10,10,13" FontSize="20" Click="play_btn_Click">PLAY</Button>
-                            <Button Grid.Row="1" Grid.Column="1" x:Name="swap_btn" Margin="0,10,10,13" FontSize="20" Click="swap_btn_Click">SWAP</Button>
+                            <Button Grid.Row="0" Grid.Column="0" x:Name="discard_btn" Margin="0,10,10,0" FontSize="20" Click="discard_btn_Click">DISCARD</Button>
+                            <Button Grid.Row="1" Grid.Column="0" x:Name="pass_btn" Margin="0,10,10,0" FontSize="20" Click="pass_btn_Click">PASS</Button>
+                            <Button Grid.Row="0" Grid.Column="1" x:Name="play_btn" Margin="0,10,10,0" FontSize="20" Click="play_btn_Click">PLAY</Button>
+                            <Button Grid.Row="1" Grid.Column="1" x:Name="swap_btn" Margin="0,10,10,0" FontSize="20" Click="swap_btn_Click">SWAP</Button>
 
                             <DockPanel Grid.Row="1" Grid.Column="2" HorizontalAlignment="Left">
                                 <Label VerticalAlignment="Center" FontSize="20">UDP:</Label>
@@ -124,16 +124,20 @@
                             </DockPanel>
                         </Grid>
                     </Grid>
-                    <Grid Grid.Column="1" Margin="0,0,0,12" >
+                    <Grid Grid.Column="1" Margin="0,0,0,0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="4*"/>
-                            <RowDefinition  Height="2*"/>
-                            <RowDefinition/>
+                            <RowDefinition Height="1.5*"/>
                         </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition/>
+                            <ColumnDefinition/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
                         <!-- ZA PRIKAZ UDP UTICNICA I DISCONNECT I LOG -->
-                        <Label x:Name="playerList" Content="MI: xxx.xxx.xx.x &#10;P2: xxx.xxx.xx.x &#10;P3: xxx.xxx.xx.x" HorizontalAlignment="Left" Margin="30,0,0,0" FontSize="32"/>
-                        <Button Grid.Row="1" Grid.Column="0" x:Name="disconect_btn" Margin="40,10,40,13" FontSize="20" Click="DisconnectBtn_Click">DISCONNECT</Button>
-                        <TextBlock x:Name="gameLog" Grid.Row="2" Background="LightGray" Margin="0,0,40,0" FontSize="24">| errors</TextBlock>
+                        <Label x:Name="playerList" Content="MI: xxx.xxx.xx.x &#10;P2: xxx.xxx.xx.x &#10;P3: xxx.xxx.xx.x" HorizontalAlignment="Left" Margin="30,0,0,0" FontSize="20"/>
+                        <Button Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" x:Name="disconect_btn" Margin="35,5,40,5" FontSize="20" Click="DisconnectBtn_Click">DISCONNECT</Button>
+                        <TextBox x:Name="gameLog" Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" Background="LightGray" Margin="30,0,40,5" FontSize="24" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto">LOG:</TextBox>
                     </Grid>
                 </Grid>
             </Grid>

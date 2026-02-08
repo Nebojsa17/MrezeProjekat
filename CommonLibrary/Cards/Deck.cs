@@ -36,9 +36,8 @@ namespace CommonLibrary.Cards
         {
             foreach(CardPair cardP in deck) 
             {
-                if (cardP.Card == returned)
+                if (cardP.Card.Equals(returned))
                 {
-                    MessageBox.Show("returned");
                     cardP.Num++;
                     return;
                 }
