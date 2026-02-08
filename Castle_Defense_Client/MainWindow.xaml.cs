@@ -303,9 +303,11 @@ namespace Castle_Defense_Client
                     {
                         c.Play(null, trake);
                     }
+                    Log("Odigrana karta: "+c.Name+" "+c.CColor);
                     break;
                 case PacketType.NEWTURN:
                     BoardAdvance();
+                    Log("Pocinje novi potez");
                     break;
                 case PacketType.TURN:
                     myTurn = true; 
