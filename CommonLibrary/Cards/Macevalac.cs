@@ -10,7 +10,7 @@ namespace CommonLibrary.Cards
     [Serializable]
     public class Macevalac : Card
     {
-        int dmg = 1;
+        int dmg = 2;
 
         public Macevalac(LineColor c) : base("Macevalac", "udara 1 protivnika\n u macevalac zoni", c)
         {
@@ -23,7 +23,12 @@ namespace CommonLibrary.Cards
             if (this.CColor!=LineColor.LJUBICASTA && traka.LColor != this.CColor) return null;
 
             if (!traka.DmgEnemy(zone, enemy, dmg)) return null;
-            hand.Remove(this);
+
+            if (hand != null) hand.Remove(this);
+            played = true;
+            enemyStruck = enemy;
+            zoneTargeted = zone;
+            linePlayed = traka.Broj;
 
             return this;
         }

@@ -6,9 +6,11 @@ using CommonLibrary.Miscellaneous;
 using CommonLibrary.Sprites;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,21 +19,25 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Media.Media3D;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using Line = CommonLibrary.Miscellaneous.Line;
 
 namespace Castle_Defense_Client
 {
     public partial class MainWindow : Window
     {
         //For web
+        private static IPAddress adresaServera = IPAddress.Parse("192.168.0.106");
         public const int SERVER_PORT = 51000;
         private Socket _sockUDP, _sockTCP;
         private bool discarded = false;
+        private bool myTurn = false;
         private CancellationTokenSource _cts;
         private Task _rxTask;
 
@@ -41,7 +47,7 @@ namespace Castle_Defense_Client
         DrawingVisual dvCards = new DrawingVisual();
         Map mapa;
         Hand karte;
-        List<CommonLibrary.Miscellaneous.Line> trake = new List<CommonLibrary.Miscellaneous.Line>();
+        List<Line> trake = new List<Line>();
 
         public MainWindow()
         {
@@ -50,6 +56,7 @@ namespace Castle_Defense_Client
             CardSpace.AddVisual(dvCards);
 
             //Ovaj sav posao ide serveru, treba da prosledi trake sa neprijateljima i karte
+            /*
             Deck.InitializeDeck(3);
             EnemyDeck.InitializeDeck(3);
 
@@ -70,24 +77,31 @@ namespace Castle_Defense_Client
             karte.Cards.Add(Deck.GetRadnomCard());
 
             EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
+            EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
+            EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
+            EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
+            EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
+            EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
+            EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
+            EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
             BoardAdvance();
-
-            //SwitchScreens();
+            Dispatcher.Invoke(() => { Render(); });
+            
+            SwitchScreens();*/
             //do ovde je posao servera
 
-            Dispatcher.Invoke(() => { Render(); });
         }
 
         public void Render()
         {
             using (DrawingContext dc = dvGame.RenderOpen())
             {
-                mapa.Draw(dc);
+               if(mapa != null) mapa.Draw(dc);
             }
 
             using (DrawingContext dc = dvCards.RenderOpen())
             {
-                karte.Draw(dc);
+               if(karte != null) karte.Draw(dc);
             }
         }
 
@@ -111,7 +125,7 @@ namespace Castle_Defense_Client
 
         private void BoardAdvance() 
         {
-            foreach (CommonLibrary.Miscellaneous.Line l in trake) l.Advance();
+            foreach (Line l in trake) l.Advance();
         }
 
         private void SwitchScreens() 
@@ -150,7 +164,7 @@ namespace Castle_Defense_Client
             try
             {
                 _sockUDP = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                IPEndPoint serverEP = new IPEndPoint(IPAddress.Loopback, SERVER_PORT);
+                IPEndPoint serverEP = new IPEndPoint(adresaServera, SERVER_PORT);
 
                 string poruka = "PRIJAVA";
                 byte[] buffer = new byte[1024];
@@ -164,6 +178,11 @@ namespace Castle_Defense_Client
             catch (SocketException er)
             {
                 Logger.Content = $"LOG: Greska prilikom slanja poruke: {er.Message}.";
+                return;
+            }
+            catch (Exception err) 
+            {
+                Logger.Content = $"LOG: Greska: {err.Message}.";
                 return;
             }
 
@@ -188,18 +207,229 @@ namespace Castle_Defense_Client
                 _sockTCP = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 _sockTCP.Connect(new IPEndPoint(IPAddress.Parse(tcpIP), tcpPort));
 
+                _cts = new CancellationTokenSource();
+                _rxTask = Task.Run(() => { RecieveLoop(_cts.Token); },_cts.Token );
+                discard_btn.IsEnabled = true;
+                play_btn.IsEnabled = true;
+                swap_btn.IsEnabled = true;
+                pass_btn.IsEnabled = true;
                 SwitchScreens();
-
             }
             catch (SocketException er)
             {
                 Logger.Content = $"LOG: Greska prilikom prijema poruke: {er.Message}.";
                 return;
             }
+            catch (Exception err)
+            {
+                Logger.Content = $"LOG: Greska: {err.Message}.";
+                return;
+            }
         }
 
+        private void RecieveLoop(CancellationToken token) 
+        {
+            while (!token.IsCancellationRequested) 
+            {
+                byte[] buf = new byte[4096];
+
+                while (!token.IsCancellationRequested)
+                {
+                    Socket s = _sockTCP;
+                    if (s == null) break;
+
+                    try
+                    {
+                        byte[] lenBuf = ReceiveExact(s, 4);
+                        int length = BitConverter.ToInt32(lenBuf, 0);
+                        if (length == 0) return;
+                        buf = ReceiveExact(s, length);
+
+                        BinaryFormatter formatter = new BinaryFormatter();
+
+                        using (MemoryStream ms = new MemoryStream(buf))
+                        {
+                            Packet paket = (Packet)formatter.Deserialize(ms);
+                            Dispatcher.Invoke(() => ObradiPaket(paket));
+                        }
+
+                    }
+                    catch (SocketException ex)
+                    {
+                        MessageBox.Show(ex.Message);
+                        Log("SocketException: " + ex.SocketErrorCode);
+                        Dispatcher.Invoke(() => Disconnect());
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex.Message);
+                        Log("Receive error: " + ex.Message);
+                        Dispatcher.Invoke(() => Disconnect());
+                        break;
+                    }
+                }
+            }
+        }
+        private byte[] ReceiveExact(Socket sock, int size)
+        {
+            byte[] buffer = new byte[size];
+            int read = 0;
+            while (read < size)
+            {
+                int n = sock.Receive(buffer, read, size - read, SocketFlags.None);
+                if(n == 0) 
+                {
+                    Log("Server je zatvorio konekciju.");
+                    Dispatcher.Invoke(() => Disconnect());
+                    break;
+                }
+                read += n;
+            }
+            return buffer;
+        }
+        private void ObradiPaket(Packet packet) 
+        {
+            switch (packet.Vrsta) 
+            {
+                case PacketType.PLAYENEMY:
+                    Enemy newEnemy = (Enemy)packet.Sadrzaj;
+                    newEnemy.Play(trake,newEnemy.playIndx);
+                    Log("Odigran: "+newEnemy.Name);
+                    break;
+                case PacketType.PLAYCARD:
+                    Card c = (Card)packet.Sadrzaj;
+                    if (c.Played())
+                    {
+                        c.Play(null, trake);
+                    }
+                    Log("Odigrana karta: "+c.Name+" "+c.CColor);
+                    break;
+                case PacketType.NEWTURN:
+                    BoardAdvance();
+                    Log("Pocinje novi potez");
+                    break;
+                case PacketType.TURN:
+                    myTurn = true; 
+                    discarded = false;
+                    Log("Tvoj potez!!!");
+                    break;
+                case PacketType.HAND:
+                    karte = new Hand(CardSpace.Width, CardSpace.Height);
+                    this.karte.Cards = (List<Card>)packet.Sadrzaj;
+                    break;
+                case PacketType.INILINES:
+                    this.trake.Add((Line)packet.Sadrzaj);
+                    mapa = new Map(Screen.Width, Screen.Height, trake);
+                    break;
+                case PacketType.CARDREQUEST:
+                    Posalji(_sockTCP, new Packet(PacketType.CARDREQUEST, Hand.HandSize - karte.Cards.Count));
+                    break;
+                case PacketType.CARD:
+                    karte.Cards.Add((Card)packet.Sadrzaj);
+                    Log("Dodata karta: " + ((Card)packet.Sadrzaj).Name);
+                    break;
+                case PacketType.NOCARD:
+                    Log("Nema vise karata");
+                    break;
+                case PacketType.DEFEAT:
+                    BoardAdvance();
+                    MessageBox.Show("Poraz :(");
+                    break;
+                case PacketType.VICTORY:
+                    BoardAdvance();
+                    MessageBox.Show("Pobeda :)");
+                    break;
+                case PacketType.PLAYERS:
+                    List<string> ostali = (List<string>)packet.Sadrzaj;
+                    string mi = _sockTCP.LocalEndPoint.ToString();
+                    playerList.Content = "PL-"+mi+"\n\n";
+                    ostali.Remove(mi);
+                    foreach ( string str in ostali) 
+                    {
+                        playerList.Content += str + "\n\n";
+                    }
+                    break;
+                case PacketType.HANDUPDATE:
+                    Hand rightHand = (Hand)packet.Sadrzaj;
+
+                    if (rightHand.Cards.Count != karte.Cards.Count) 
+                    {
+                        Log("Korektovanje ruke!!!");
+                        karte.Cards = rightHand.Cards;
+                    }
+
+                    break;
+            }
+
+            Render();
+        }
+
+        private void Log(string line)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                gameLog.Text += "\n"+line;
+                gameLog.ScrollToEnd();
+            });
+        }
+        
+        private void Posalji(Socket s, Packet paket) 
+        {
+            if (!myTurn) return;
+
+            byte[] buffer = new byte[1024];
+
+            try
+            {
+                using (MemoryStream ms = new MemoryStream())
+                {
+                    BinaryFormatter bf = new BinaryFormatter();
+                    bf.Serialize(ms, paket);
+                    buffer = ms.ToArray();
+                }
+
+                byte[] lengthPrefix = BitConverter.GetBytes(buffer.Length);
+                
+                _sockTCP.Send(buffer);
+
+                if (paket.Vrsta == PacketType.PASS || paket.Vrsta == PacketType.PLAYCARD) myTurn = false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+        }
+
+        private void Disconnect()
+        {
+            try
+            {
+                if (_cts != null) _cts.Cancel();
+
+                if (_sockTCP != null)
+                {
+                    try { _sockTCP.Shutdown(SocketShutdown.Both); } catch { }
+                    try { _sockTCP.Close(); } catch { }
+                }
+                _sockTCP = null;
+
+                discard_btn.IsEnabled = false;
+                play_btn.IsEnabled = false;
+                swap_btn.IsEnabled = false;
+                pass_btn.IsEnabled = false;
+
+                Log("Diskonektovan.");
+            }
+            catch (Exception ex)
+            {
+                Log("Disconnect error: " + ex.Message);
+            }
+        }
+        
         private void discard_btn_Click(object sender, RoutedEventArgs e)
         {
+            if (!myTurn) return;
             // logika za discard, serveru samo treba da se posalje karta umesto da je ovde dodajemo
             int cardIndx = int.Parse(choosenCard.Text);
             if (cardIndx < 1 || cardIndx > karte.Cards.Count) return;
@@ -208,31 +438,32 @@ namespace Castle_Defense_Client
             if (discarded) return;
 
             discarded = true;
-            Deck.ReturnCard(karte.Cards[cardIndx]);//umesto ovoga salji serveru kartu
-            karte.Cards.RemoveAt(cardIndx);
 
+            byte[] karteBuffer = new byte[1024];
+
+            Posalji(_sockTCP ,new Packet(PacketType.DISCARD, karte.Cards[cardIndx]));
+            karte.Cards.RemoveAt(cardIndx);
+            Log("Odbacena :(");
             Dispatcher.Invoke(() => { Render(); });
         }
 
         private void pass_btn_Click(object sender, RoutedEventArgs e)
-        {   //logika za teoretski kraj poteza, mozes izignorisati treba da se zameni sa serverom
-            //server treba da da enemy i karte, ostalo ostaje
-
-            discarded = false; // ovo treba da resetuje kada mu server da naznaku da nam je ponovo krenuo potez
-            BoardAdvance();
-            EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
-            for (int i = 5 - (5 - karte.Cards.Count); i < 5; i++) karte.Cards.Add(Deck.GetRadnomCard());
+        {
+            if (!myTurn) return;
+            Posalji(_sockTCP, new Packet(PacketType.PASS,new Strelac(LineColor.LJUBICASTA)));
+            Log("Preskocio");
             Dispatcher.Invoke(() => { Render(); });
         }
 
         private void play_btn_Click(object sender, RoutedEventArgs e)
         {
+            if (!myTurn) return;
             //logika za igranje karata, treba dodati deo koji ce serveru poslati koja je karta odigrana
             int cardIndx = int.Parse(choosenCard.Text);
             if (cardIndx < 1 || cardIndx > karte.Cards.Count) return;
             cardIndx--;
             int unetaTrakaIndx = int.Parse(unetaTraka.Text);
-            if (unetaTrakaIndx < 1 || unetaTrakaIndx > (trake.Count-  1) || karte.Cards.Count==0) return;
+            if (unetaTrakaIndx < 1 || unetaTrakaIndx > trake.Count || karte.Cards.Count==0) return;
             unetaTrakaIndx--;
             int unetaZoneIndx = int.Parse(unetaStaza.Text);
             int unetEnemyIndx = int.Parse(unetNeprijatelj.Text);
@@ -241,17 +472,7 @@ namespace Castle_Defense_Client
 
             if (odigrana!=null) 
             {
-                //karta uspesno odigrana, smestena u odigrana, pa se serveru moze proslediti ili ona ili index odigrane ili sta se vec odluci
-                //treba deo za server ovde
-                //znamo da je play uvek poslednji u potezu pa posle ovoga treba da cekamo da server da naznaku da mozemo da igramo opet
-
-
-                //logika za teoretski kraj poteza, mozes izignorisati treba da se zameni sa serverom
-                //server treba da da enemy i karte, ostalo ostaje
-                discarded = false; // ovo treba da resetuje kada mu server da naznaku da nam je ponovo krenuo potez
-                BoardAdvance(); 
-                EnemyDeck.GetRadnomEnemy().Play(trake, EnemyDeck.random.Next(0, 5));
-                for (int i = 5 - (5 - karte.Cards.Count); i < 5; i++) karte.Cards.Add(Deck.GetRadnomCard());
+                Posalji(_sockTCP, new Packet(PacketType.PLAYCARD,odigrana));
                 Dispatcher.Invoke(() => { Render(); });
             }
 
@@ -274,9 +495,7 @@ namespace Castle_Defense_Client
 
         private void DisconnectBtn_Click(object sender, RoutedEventArgs e)
         {
-            //logika za disconnect potrebna
-
-            //da se vrati na pocetni screen
+            Disconnect();
             SwitchScreens();
         }
     }

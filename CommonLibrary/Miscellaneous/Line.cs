@@ -52,8 +52,8 @@ namespace CommonLibrary.Miscellaneous
         public bool DmgEnemy(int zoneIndx, int enemyIndx, int dmg) 
         {
             if (zoneIndx > 3 || zoneIndx < 0) return false;
-            if(enemyIndx == 0){ MessageBox.Show("no bitches"); return false; }
-            if (GetZone(zoneIndx).Count < enemyIndx || GetZone(zoneIndx).Count==0) { MessageBox.Show("no bitches extra"); return false; }
+            if(enemyIndx == 0){ return false; }
+            if (GetZone(zoneIndx).Count < enemyIndx || GetZone(zoneIndx).Count==0) { return false; }
 
             if (GetZone(zoneIndx)[enemyIndx - 1].TakeDmg(dmg)) 
             {
@@ -115,11 +115,12 @@ namespace CommonLibrary.Miscellaneous
             }
         }
 
+        private int LineWidth = 60;
         public int GetSelected(Point select, int zona, double height, Point origin)
         {
             if (GetZone(zona + 1).Count == 0) return 0;
 
-            int lineW = 42;
+            int lineW = LineWidth;
             Rect r = new Rect(new Point(origin.X + lineW, origin.Y + zona*(height / 3)), new Point(origin.X - lineW, origin.Y + (zona+1) * (height / 3)));
             double sampleWidth = r.Width / 2; 
             double sampleHeight = r.Height / 2;
@@ -146,26 +147,26 @@ namespace CommonLibrary.Miscellaneous
             SolidColorBrush brush = new SolidColorBrush(Color.FromRgb(189, 159, 62));
             Pen pen = new Pen(new SolidColorBrush(ConvertToColour()), 2);
 
-            int lineW = 42;
+            int lineW = LineWidth;
 
             //strelac zona
             Rect r = new Rect(new Point(origin.X+ lineW, origin.Y), new Point(origin.X- lineW, origin.Y + height));
             dc.DrawRectangle(brush, pen, r);
-            DrawZone(StrelacZona, dc, new Point(origin.X - 20, origin.Y));
+            DrawZone(StrelacZona, dc, new Point(origin.X - lineW / 2, origin.Y));
 
             //vitez zona
-            lineW = 41;
+            lineW--;
             brush = new SolidColorBrush(Color.FromRgb(156, 139, 87));
             pen = new Pen(new SolidColorBrush(ConvertToColour()), 0);
             r = new Rect(new Point(origin.X + lineW, origin.Y + height / 3), new Point(origin.X - lineW, origin.Y + 2*(height / 3)));
             dc.DrawRectangle(brush, pen, r);
-            DrawZone(VitezZona, dc, new Point(origin.X-20, origin.Y + (height / 3)));
+            DrawZone(VitezZona, dc, new Point(origin.X- lineW / 2, origin.Y + (height / 3)));
 
             //macevalac zona
             brush = new SolidColorBrush(Color.FromRgb(148, 139, 111));
             r = new Rect(new Point(origin.X + lineW, origin.Y + 2*(height / 3)), new Point(origin.X - lineW, origin.Y + height));
             dc.DrawRectangle(brush, pen, r);
-            DrawZone(MacevalacZona, dc, new Point(origin.X-20, origin.Y + 2*(height / 3)));
+            DrawZone(MacevalacZona, dc, new Point(origin.X-lineW/2, origin.Y + 2*(height / 3)));
 
 
             double wallPadding = 30;
@@ -175,12 +176,13 @@ namespace CommonLibrary.Miscellaneous
         public void DrawZone(List<Enemy> zone, DrawingContext dc, Point origin) 
         {
             int enemyItt = 0;
+            int enemyOffset = LineWidth;
             for(int i=0; i<4; i++)
             {
                 for (int j = 0; j < 2; j++)
                 {
                     if (enemyItt >= zone.Count) return;
-                    zone[enemyItt].Draw(dc, new Point(origin.X + 40*j, origin.Y + 20 + 40*i));
+                    zone[enemyItt].Draw(dc, new Point(origin.X + enemyOffset * j, origin.Y + 20 + enemyOffset * i));
 
                     enemyItt++;
                 }

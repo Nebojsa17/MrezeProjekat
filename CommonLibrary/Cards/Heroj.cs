@@ -10,7 +10,7 @@ namespace CommonLibrary.Cards
     [Serializable]
     public class Heroj : Card
     {
-        int dmg = 1;
+        int dmg = 2;
 
         public Heroj(LineColor c) : base("Heroj", "udara 1 protivnika", c)
         {
@@ -22,7 +22,14 @@ namespace CommonLibrary.Cards
             if (traka.LColor != this.CColor) return null;
 
             if (!traka.DmgEnemy(zone, enemy, dmg)) return null;
-            hand.Remove(this);
+
+            if (hand != null) hand.Remove(this);
+
+            played = true;
+            enemyStruck = enemy;
+            zoneTargeted = zone;
+            linePlayed = traka.Broj;
+
 
             return this;
         }

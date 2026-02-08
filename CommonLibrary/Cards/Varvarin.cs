@@ -23,7 +23,13 @@ namespace CommonLibrary.Cards
         public override Card Play(List<Card> hand, Line traka, int zone, int enemy)
         {
             if (!traka.DmgEnemy(zone, enemy, dmg)) return null;
-            hand.Remove(this);
+
+            if (hand != null) hand.Remove(this);
+            played = true;
+            enemyStruck = enemy;
+            zoneTargeted = zone;
+            linePlayed = traka.Broj;
+
 
             return this;
         }

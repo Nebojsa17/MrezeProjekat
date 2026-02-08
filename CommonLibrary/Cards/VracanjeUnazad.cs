@@ -28,7 +28,12 @@ namespace CommonLibrary.Cards
             traka.GetZone(zone).RemoveAt(enemy-1);
             traka.GetZone(0).Add(e);
 
-            hand.Remove(this);
+            if (hand != null) hand.Remove(this);
+            played = true;
+            enemyStruck = enemy;
+            zoneTargeted = zone;
+            linePlayed = traka.Broj;
+
 
             return this;
         }

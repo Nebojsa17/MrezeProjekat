@@ -16,6 +16,9 @@ namespace CommonLibrary.Cards
         protected const double cardWidth = 80;
         protected const double cardHeight = 100;
 
+        protected bool played = false;
+        protected int linePlayed = 0, zoneTargeted = 0, enemyStruck = 0;
+
         public string Name { get; set; }
         public string Effect { get; set; }
         public LineColor CColor { get; set; }
@@ -41,6 +44,23 @@ namespace CommonLibrary.Cards
             text = new FormattedText(Effect, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface("Sagoe UI"), 8, Brushes.White, 2);
             dc.DrawText(text, new Point(origin.X - 35, origin.Y));
         }
+
+        public bool Played() 
+        {
+            return played;
+        }
+
+        public void Play(List<Card> hand, List<Line> trake) 
+        {
+            foreach(Line l in trake) 
+            {
+                if(l.Broj == linePlayed) 
+                {
+                    Play(hand,l,zoneTargeted,enemyStruck);
+                }
+            }
+        }
+
         protected Color ConvertToColour()
         {
             switch (CColor)
@@ -62,7 +82,7 @@ namespace CommonLibrary.Cards
         {
             if (obj.GetType() != this.GetType()) return false;
 
-            return ((Card)obj).Name == this.Name;
+            return ((Card)obj).Name == this.Name && ((Card)obj).Name == this.Name;
         }
 
         public abstract Card Play(List<Card> hand, Line traka, int zone, int enemy);

@@ -14,8 +14,9 @@ namespace CommonLibrary.Enemies
     public class Enemy
     {
         public string Name { get; set; } = string.Empty;
+        public int playIndx { get; set; } = -1;
 
-        int HP { get; set; } = 0;
+        public int HP { get; set; } = 0;
 
         public Enemy(string name, int hp)
         {

@@ -27,6 +27,8 @@ namespace CommonLibrary.Cards
                 deck.Add(new CardPair(new Heroj((LineColor)i), 1));
                 deck.Add(new CardPair(new Varvarin(), 1));
                 deck.Add(new CardPair(new VracanjeUnazad(), 1));
+                deck.Add(new CardPair(new Cigla(), 4));
+                deck.Add(new CardPair(new Malter(), 4));
             }
         }
 
@@ -34,9 +36,8 @@ namespace CommonLibrary.Cards
         {
             foreach(CardPair cardP in deck) 
             {
-                if (cardP.Card == returned)
+                if (cardP.Card.Equals(returned))
                 {
-                    MessageBox.Show("returned");
                     cardP.Num++;
                     return;
                 }
