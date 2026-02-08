@@ -276,7 +276,8 @@ namespace Castle_Defense_Server
             {
                 foreach (var ip in host.AddressList)
                 {
-                    if (ip.AddressFamily == AddressFamily.InterNetwork) return "192.168.0.106"; //ip.ToString();
+                    if (ip.AddressFamily == AddressFamily.InterNetwork) return ip.ToString();
+                    //if (ip.AddressFamily == AddressFamily.InterNetwork) return "192.168.0.106";
                 }
 
                 return string.Empty;
