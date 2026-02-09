@@ -228,6 +228,7 @@ namespace Castle_Defense_Server
                         foreach (Socket s in igraciSoketi)
                         {
                             Posalji(s, new Packet(PacketType.HANDUPDATE, karteIgraca[igraciSoketi.IndexOf(s)]));
+                            Posalji(s, new Packet(PacketType.LINECHECK, Line.Report(trake)));
                             Posalji(s, new Packet(PacketType.NEWTURN, -1)); 
                         }
                     }
@@ -385,12 +386,7 @@ namespace Castle_Defense_Server
 
             try
             {
-                int n = client.Receive(buf);
-                if (n == 0)
-                {
-                    RemoveClient(client, "Disconnected");
-                    return;
-                }
+                client.Receive(buf);
 
                 Packet primljenPaket;
 
@@ -402,6 +398,10 @@ namespace Castle_Defense_Server
                 }
 
 
+            }
+            catch (SocketException ex) when (ex.SocketErrorCode == SocketError.WouldBlock)
+            {
+                return; 
             }
             catch (SocketException ex)
             {
@@ -480,6 +480,17 @@ namespace Castle_Defense_Server
                         }
                         else Posalji(s, new Packet(PacketType.CARD, nabavljena));
                         Console.WriteLine("Saljem "+s.RemoteEndPoint+" klijentu kartu.");
+                    }
+                    break;
+                case PacketType.HAND:
+                    karteIgraca[igraciSoketi.IndexOf(s)].Cards = (List<Card>)paket.Sadrzaj;
+                    Console.WriteLine("Update ruke: "+s.RemoteEndPoint);
+                    break;
+                case PacketType.LINECHECK:
+                    Console.WriteLine("Korektujem trake: "+s.RemoteEndPoint);
+                    foreach(Line l in trake) 
+                    {
+                        Posalji(s, new Packet(PacketType.INILINES, l));
                     }
                     break;
             }
@@ -588,7 +599,7 @@ namespace Castle_Defense_Server
             List<string> igraciIP = new List<string>();
             foreach (Socket s in igraciSoketi)
             {
-                igraciIP.Add(s.RemoteEndPoint.ToString());
+                igraciIP.Add((s.RemoteEndPoint as IPEndPoint).ToString());
             }
             foreach (Socket s in igraciSoketi) Posalji(s, new Packet(PacketType.PLAYERS, igraciIP));
         }
@@ -664,7 +675,11 @@ namespace Castle_Defense_Server
             output += "\n\nKarte Igraca: ";
             foreach(Socket s in igraciSoketi) 
             {
-                output += "\nigrac: " + s.RemoteEndPoint + " ima " + karteIgraca[igraciSoketi.IndexOf(s)].Cards.Count + " karata";
+                output += "\nigrac: " + s.RemoteEndPoint + " ima " + karteIgraca[igraciSoketi.IndexOf(s)].Cards.Count + " karata\n";
+                foreach(Card c in karteIgraca[igraciSoketi.IndexOf(s)].Cards) 
+                {
+                    output += "\t" + c.Name + " " + c.CColor + "\n";
+                }
             }
             Console.WriteLine(output);
         }
@@ -689,12 +704,9 @@ namespace Castle_Defense_Server
                     paketBuffer = ms.ToArray();
                 }
 
-                //byte[] lengthPrefix = BitConverter.GetBytes(paketBuffer.Length);
+                byte[] lengthPrefix = BitConverter.GetBytes(paketBuffer.Length);
 
-                //Thread.Sleep(150);
-
-                //sock.Send(lengthPrefix);
-                Console.WriteLine("saljem: "+ paketBuffer.Length);
+                sock.Send(lengthPrefix);
                 sock.Send(paketBuffer);
             }
             catch (Exception e)

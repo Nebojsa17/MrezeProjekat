@@ -236,5 +236,29 @@ namespace CommonLibrary.Miscellaneous
 
         #endregion
 
+
+        public static string Report(List<Line> trake) 
+        {
+            string report = "";
+
+            foreach (Line line in trake) 
+            {
+                foreach (Enemy e in line.SumaZona) report += e.Name + "" + e.HP;
+            }
+            foreach (Line line in trake)
+            {
+                foreach (Enemy e in line.StrelacZona) report += e.Name + "" + e.HP;
+            }
+            foreach (Line line in trake)
+            {
+                foreach (Enemy e in line.VitezZona) report += e.Name + "" + e.HP;
+            }
+            foreach (Line line in trake)
+            {
+                foreach (Enemy e in line.MacevalacZona) report += e.Name + "" + e.HP;
+            }
+
+            return report;
+        }
     }
 }
