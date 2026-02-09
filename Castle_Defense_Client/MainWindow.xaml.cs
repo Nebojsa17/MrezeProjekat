@@ -1,5 +1,4 @@
 ﻿using Castle_Defense_Client.Elements;
-using Castle_Defense_Client.Klijent;
 using CommonLibrary;
 using CommonLibrary.Cards;
 using CommonLibrary.Enemies;
