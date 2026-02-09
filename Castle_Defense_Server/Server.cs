@@ -515,27 +515,27 @@ namespace Castle_Defense_Server
             {
                 int brTrake = localRandom.Next(0, 2);
 
-                trake[brTrake].StrelacZona.Add(new Goblin());
-                trake[1 - brTrake].StrelacZona.Add(new Ork());
+                trake[brTrake].StrelacZona.Add(EnemyDeck.GetSpecific(typeof(Goblin)));
+                trake[1 - brTrake].StrelacZona.Add(EnemyDeck.GetSpecific(typeof(Ork)));
             }
             else if (brojIgraca == 2)
             {
                 List<int> brTrake = new List<int> { 0, 1, 2, 3 };
                 int ind = localRandom.Next(0, brTrake.Count);
 
-                trake[ind].StrelacZona.Add(new Goblin());
+                trake[brTrake[ind]].StrelacZona.Add(EnemyDeck.GetSpecific(typeof(Goblin)));
 
                 brTrake.RemoveAt(ind);
                 ind = localRandom.Next(0, brTrake.Count);
 
-                trake[ind].StrelacZona.Add(new Goblin());
+                trake[brTrake[ind]].StrelacZona.Add(EnemyDeck.GetSpecific(typeof(Goblin)));
 
                 brTrake.RemoveAt(ind);
                 ind = localRandom.Next(0, brTrake.Count);
-                trake[ind].StrelacZona.Add(new Ork());
+                trake[brTrake[ind]].StrelacZona.Add(EnemyDeck.GetSpecific(typeof(Ork)));
 
                 brTrake.RemoveAt(ind);
-                trake[0].StrelacZona.Add(new Trol());
+                trake[brTrake[0]].StrelacZona.Add(EnemyDeck.GetSpecific(typeof(Trol)));
             }
             else if (brojIgraca == 3)
             {
@@ -543,31 +543,31 @@ namespace Castle_Defense_Server
                 List<int> brTrake = new List<int> { 0, 1, 2, 3, 4, 5 };
                 int ind = r.Next(0, brTrake.Count);
 
-                trake[ind].StrelacZona.Add(new Goblin());
+                trake[brTrake[ind]].StrelacZona.Add(EnemyDeck.GetSpecific(typeof(Goblin)));
 
                 brTrake.RemoveAt(ind);
                 ind = r.Next(0, brTrake.Count);
 
-                trake[ind].StrelacZona.Add(new Goblin());
+                trake[brTrake[ind]].StrelacZona.Add(EnemyDeck.GetSpecific(typeof(Goblin)));
 
                 brTrake.RemoveAt(ind);
                 ind = r.Next(0, brTrake.Count);
 
-                trake[ind].StrelacZona.Add(new Goblin());
+                trake[brTrake[ind]].StrelacZona.Add(EnemyDeck.GetSpecific(typeof(Goblin)));
 
                 brTrake.RemoveAt(ind);
                 ind = r.Next(0, brTrake.Count);
 
-                trake[ind].StrelacZona.Add(new Ork());
+                trake[brTrake[ind]].StrelacZona.Add(EnemyDeck.GetSpecific(typeof(Ork)));
 
                 brTrake.RemoveAt(ind);
                 ind = r.Next(0, brTrake.Count);
 
-                trake[ind].StrelacZona.Add(new Ork());
+                trake[brTrake[ind]].StrelacZona.Add(EnemyDeck.GetSpecific(typeof(Ork)));
 
                 brTrake.RemoveAt(ind);
 
-                trake[0].StrelacZona.Add(new Trol());
+                trake[brTrake[0]].StrelacZona.Add(EnemyDeck.GetSpecific(typeof(Trol)));
             }
             Console.WriteLine("Gotovi neprijatelji");
             #endregion

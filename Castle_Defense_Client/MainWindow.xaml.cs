@@ -575,6 +575,7 @@ namespace Castle_Defense_Client
             if (odigrana!=null) 
             {
                 Posalji(_sockTCP, new Packet(PacketType.PLAYCARD,odigrana));
+                Log("Odigrao");
                 Dispatcher.Invoke(() => { Render(); });
             }
         }

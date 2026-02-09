@@ -51,6 +51,20 @@ namespace CommonLibrary.Enemies
 
             return izabrana;
         }
+
+        public static Enemy GetSpecific(Type tip)
+        {
+            foreach(EnemyPair ep in deck) 
+            {
+                if (ep.Enemy.GetType() == tip) 
+                {
+                    ep.Num--;
+                    return ep.Enemy.Copy();
+                }
+            }
+
+            return null;
+        }
     }
 
     public class EnemyPair
