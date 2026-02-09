@@ -1,4 +1,5 @@
 ﻿using Castle_Defense_Client.Elements;
+using Castle_Defense_Client.Klijent;
 using CommonLibrary;
 using CommonLibrary.Cards;
 using CommonLibrary.Enemies;
@@ -6,11 +7,15 @@ using CommonLibrary.Miscellaneous;
 using CommonLibrary.Sprites;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices.ComTypes;
+using System.Runtime.Serialization;
 using System.Runtime.Serialization.Formatters.Binary;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -35,12 +40,18 @@ namespace Castle_Defense_Client
         //For web
         private static IPAddress adresaServera = IPAddress.Loopback;
         //private static IPAddress adresaServera = IPAddress.Parse("192.168.0.106");
-        public const int SERVER_PORT = 51000;
-        private Socket _sockUDP, _sockTCP;
+        private const int SERVER_PORT = 51000;
+        private int CLIENT_PORT;// = 51001;
+        private Socket _sockUDP, _sockTCP, _swapUDP;
+        private static readonly object _lock = new object();
         private bool discarded = false;
+        private bool swapped = false;
         private bool myTurn = false;
+        private Card swappedCard = null;
+        private int swappedInd = -1;
         private CancellationTokenSource _cts;
-        private Task _rxTask;
+        private Task _tcpTask;
+        private Task _udpTask;
 
 
         //For game
@@ -60,7 +71,10 @@ namespace Castle_Defense_Client
             /*
             Deck.InitializeDeck(3);
             EnemyDeck.InitializeDeck(3);
-
+            _cts = new CancellationTokenSource();
+            myTurn = true;
+            CLIENT_PORT = (new Random()).Next(50000,60000);
+            _udpTask = Task.Run(() => { UdpRecieveLoop(_cts.Token); }, _cts.Token);
             trake.Add(new CommonLibrary.Miscellaneous.Line(1, LineColor.PLAVA));
             trake.Add(new CommonLibrary.Miscellaneous.Line(2, LineColor.PLAVA));
             trake.Add(new CommonLibrary.Miscellaneous.Line(3, LineColor.ZELENA));
@@ -160,6 +174,7 @@ namespace Castle_Defense_Client
 
             Render();
         }
+        
         private void ConnectBtn_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -209,10 +224,11 @@ namespace Castle_Defense_Client
                 _sockTCP.Connect(new IPEndPoint(IPAddress.Parse(tcpIP), tcpPort));
 
                 _cts = new CancellationTokenSource();
-                _rxTask = Task.Run(() => { RecieveLoop(_cts.Token); },_cts.Token );
+                CLIENT_PORT = (_sockTCP.LocalEndPoint as IPEndPoint).Port;
+                _tcpTask = Task.Run(() => { RecieveLoop(_cts.Token); },_cts.Token );
+                _udpTask = Task.Run(() => { UdpRecieveLoop(_cts.Token); }, _cts.Token);
                 discard_btn.IsEnabled = true;
                 play_btn.IsEnabled = true;
-                swap_btn.IsEnabled = true;
                 pass_btn.IsEnabled = true;
                 SwitchScreens();
             }
@@ -227,51 +243,96 @@ namespace Castle_Defense_Client
                 return;
             }
         }
-
-        private void RecieveLoop(CancellationToken token) 
+        private void UdpRecieveLoop(CancellationToken token)
         {
-            while (!token.IsCancellationRequested) 
+            try
             {
-                byte[] buf = new byte[4096];
-
+                _swapUDP = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                _swapUDP.Bind(new IPEndPoint((_sockTCP.LocalEndPoint as IPEndPoint).Address,CLIENT_PORT));
+                byte[] buf = new byte[1024];
+                Log("UDP slusa na: "+(_swapUDP.LocalEndPoint as IPEndPoint));
+                
                 while (!token.IsCancellationRequested)
                 {
-                    Socket s = _sockTCP;
-                    if (s == null) break;
+                    EndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
+                    int received = _swapUDP.Receive(buf, SocketFlags.None);
+                    
+                    if (received == 0) continue;
 
-                    try
+                    BinaryFormatter formatter = new BinaryFormatter();
+                    using (MemoryStream ms = new MemoryStream(buf))
                     {
-                        byte[] lenBuf = ReceiveExact(s, 4);
-                        int length = BitConverter.ToInt32(lenBuf, 0);
-                        if (length == 0) return;
-                        buf = ReceiveExact(s, length);
-
-                        BinaryFormatter formatter = new BinaryFormatter();
-
-                        using (MemoryStream ms = new MemoryStream(buf))
-                        {
-                            Packet paket = (Packet)formatter.Deserialize(ms);
-                            Dispatcher.Invoke(() => ObradiPaket(paket));
-                        }
-
-                    }
-                    catch (SocketException ex)
-                    {
-                        MessageBox.Show(ex.Message);
-                        Log("SocketException: " + ex.SocketErrorCode);
-                        Dispatcher.Invoke(() => Disconnect());
-                        break;
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show(ex.Message);
-                        Log("Receive error: " + ex.Message);
-                        Dispatcher.Invoke(() => Disconnect());
-                        break;
+                        Packet paket = (Packet)formatter.Deserialize(ms);
+                        Dispatcher.Invoke(() => ObradiPaket(paket));
                     }
                 }
             }
+            catch (Exception err) 
+            {
+                Log("UDP greska: "+err.Message);
+            }
         }
+
+        private void RecieveLoop(CancellationToken token)
+        {
+            byte[] buf = new byte[4096];
+
+            while (!token.IsCancellationRequested)
+            {
+                List<Socket> readList = new List<Socket>();
+                lock (_lock)
+                {
+                    readList.Add(_sockTCP);
+                }
+
+                try
+                {
+                    Socket.Select(readList, null, null, 200000);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                for (int i = 0; i < readList.Count; i++)
+                {
+                    if (token.IsCancellationRequested) break;
+
+                    ReceiveFromServer(readList[i]);
+                }
+            }
+        }
+
+        private void ReceiveFromServer(Socket s)
+        {
+            byte[] buf = new byte[4096];
+
+            try
+            {
+                byte[] lenBuf = ReceiveExact(s, 4);
+                int length = BitConverter.ToInt32(lenBuf, 0);
+                if (length == 0) Dispatcher.Invoke(() => Disconnect());
+                buf = ReceiveExact(s, length);
+
+                BinaryFormatter formatter = new BinaryFormatter();
+
+                using (MemoryStream ms = new MemoryStream(buf))
+                {
+                    Packet paket = (Packet)formatter.Deserialize(ms);
+                    Dispatcher.Invoke(() => ObradiPaket(paket));
+                }
+
+            }
+            catch (SocketException ex)
+            {
+                Log("SocketException: " + ex.SocketErrorCode);
+                Dispatcher.Invoke(() => Disconnect());
+            }
+            catch (Exception ex)
+            {
+            }
+        }
+
         private byte[] ReceiveExact(Socket sock, int size)
         {
             byte[] buffer = new byte[size];
@@ -289,6 +350,7 @@ namespace Castle_Defense_Client
             }
             return buffer;
         }
+        
         private void ObradiPaket(Packet packet) 
         {
             switch (packet.Vrsta) 
@@ -313,15 +375,21 @@ namespace Castle_Defense_Client
                 case PacketType.TURN:
                     myTurn = true; 
                     discarded = false;
+                    swapped = false;
+                    swappedCard = null;
+                    if(swappedInd!=-1)Posalji(_sockTCP, new Packet(PacketType.HAND, karte.Cards));
+                    swappedInd = -1;
                     Log("Tvoj potez!!!");
                     break;
                 case PacketType.HAND:
                     karte = new Hand(CardSpace.Width, CardSpace.Height);
                     this.karte.Cards = (List<Card>)packet.Sadrzaj;
+                    Log("Primljene karte");
                     break;
                 case PacketType.INILINES:
                     this.trake.Add((Line)packet.Sadrzaj);
                     mapa = new Map(Screen.Width, Screen.Height, trake);
+                    Log("Primljena traka");
                     break;
                 case PacketType.CARDREQUEST:
                     Posalji(_sockTCP, new Packet(PacketType.CARDREQUEST, Hand.HandSize - karte.Cards.Count));
@@ -343,23 +411,60 @@ namespace Castle_Defense_Client
                     break;
                 case PacketType.PLAYERS:
                     List<string> ostali = (List<string>)packet.Sadrzaj;
-                    string mi = _sockTCP.LocalEndPoint.ToString();
+                    string mi = (_sockTCP.LocalEndPoint as IPEndPoint).ToString();
                     playerList.Content = "PL-"+mi+"\n\n";
                     ostali.Remove(mi);
                     foreach ( string str in ostali) 
                     {
                         playerList.Content += str + "\n\n";
                     }
+                    Log("Primljeni igraci");
                     break;
                 case PacketType.HANDUPDATE:
                     Hand rightHand = (Hand)packet.Sadrzaj;
-
+                    Log("Provera ruke");
                     if (rightHand.Cards.Count != karte.Cards.Count) 
                     {
                         Log("Korektovanje ruke!!!");
                         karte.Cards = rightHand.Cards;
                     }
 
+                    break;
+                case PacketType.LINECHECK:
+                    string lReport = (string)packet.Sadrzaj;
+                    Log("Provera traka");
+                    if (lReport != Line.Report(trake))
+                    {
+                        Log("Korektovanje linija!!!");
+                        trake.Clear();
+                        Posalji(_sockTCP,new Packet(PacketType.LINECHECK,-1));
+                    }
+
+                    break;
+                case PacketType.SWAP:
+                    if (myTurn)
+                    {
+                        // potvrdio se swap
+                        swappedCard = (Card)packet.Sadrzaj;
+                        Log("swaped: " + swappedCard.Name + " " + swappedCard.CColor);
+                        karte.Cards[swappedInd] = swappedCard;
+                        Posalji(_sockTCP,new Packet(PacketType.HAND,karte.Cards));
+                        swapped = true;
+                    }
+                    else
+                    {
+                        // stigao swap request
+                        swappedCard = (Card)packet.Sadrzaj;
+                        Log("swap request: " + swappedCard.Name + " " + swappedCard.CColor);
+                    }
+                    break;
+                case PacketType.NOSWAP:
+                    swapped = false;
+                    Log("swap request odbijen");
+                    break;
+                case PacketType.SWAPIP:
+                    IPEndPoint addr = (IPEndPoint)packet.Sadrzaj;
+                    udpVezaMenjanja.Text = addr.ToString();
                     break;
             }
 
@@ -379,7 +484,7 @@ namespace Castle_Defense_Client
         {
             if (!myTurn) return;
 
-            byte[] buffer = new byte[1024];
+            byte[] buffer = new byte[4096];
 
             try
             {
@@ -389,8 +494,6 @@ namespace Castle_Defense_Client
                     bf.Serialize(ms, paket);
                     buffer = ms.ToArray();
                 }
-
-                byte[] lengthPrefix = BitConverter.GetBytes(buffer.Length);
                 
                 _sockTCP.Send(buffer);
 
@@ -417,7 +520,6 @@ namespace Castle_Defense_Client
 
                 discard_btn.IsEnabled = false;
                 play_btn.IsEnabled = false;
-                swap_btn.IsEnabled = false;
                 pass_btn.IsEnabled = false;
 
                 Log("Diskonektovan.");
@@ -476,12 +578,76 @@ namespace Castle_Defense_Client
                 Posalji(_sockTCP, new Packet(PacketType.PLAYCARD,odigrana));
                 Dispatcher.Invoke(() => { Render(); });
             }
-
         }
 
         private void swap_btn_Click(object sender, RoutedEventArgs e)
         {
+            if (myTurn && swapped) return; 
 
+            if (!myTurn && swappedCard == null) return;
+
+            string[] parts = udpVezaMenjanja.Text.Split(':');
+            if (parts.Length != 2)
+            {
+                Log("Neispravan format, očekuje se IP:Port");
+                return;
+            }
+
+            if (!IPAddress.TryParse(parts[0], out IPAddress dest))
+            {
+                Log("Neispravna IP adresa");
+                return;
+            }
+
+            if (!int.TryParse(parts[1], out int port))
+            {
+                Log("Neispravan port");
+                return;
+            }
+
+            int cardIndx = int.Parse(choosenCard.Text);
+            if (myTurn)
+            {
+                if (cardIndx < 1 || cardIndx > karte.Cards.Count)
+                {
+                    Log("Selektuj kartu!");
+                    return;
+                }
+            }
+
+            if (cardIndx != 0)
+            {
+                swappedInd = cardIndx - 1;
+                UdpSend(new Packet(PacketType.SWAP, karte.Cards[cardIndx - 1]), new IPEndPoint(dest, port));
+                if(swappedCard != null) 
+                {
+                    karte.Cards[swappedInd] = swappedCard;
+                    swappedCard = null;
+                    Render();
+                }
+            }
+            else 
+            {
+                UdpSend(new Packet(PacketType.NOSWAP, -1), new IPEndPoint(dest, port));
+            }
+            if (myTurn) UdpSend(new Packet(PacketType.SWAPIP, _swapUDP.LocalEndPoint as IPEndPoint), new IPEndPoint(dest, port));
+
+            swapped = true;
+
+            Log("poslao pakete za swap");
+
+        }
+        private void UdpSend(Packet paket,IPEndPoint dest) 
+        {
+            byte[] buffer = new byte[1024];
+
+            using (MemoryStream ms = new MemoryStream())
+            {
+                BinaryFormatter bf = new BinaryFormatter();
+                bf.Serialize(ms, paket);
+                buffer = ms.ToArray();
+                _swapUDP.SendTo(buffer, buffer.Length, SocketFlags.None, dest);
+            }
         }
 
         private void close_Click(object sender, RoutedEventArgs e)
